@@ -40,6 +40,7 @@ public class BigFileSorterTest {
         Utils.writeRandomLines(inputFile, 5, 3);
         BigFileSorter bigFileSorter = new BigFileSorter(inputFile, outputFile, null);
         bigFileSorter.sort();
+        checkLines(outputFile, 5, 3);
     }
 
     @Test

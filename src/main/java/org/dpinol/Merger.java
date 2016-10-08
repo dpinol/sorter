@@ -8,7 +8,7 @@ import java.util.List;
  * Merges a list of sorted files into a single one
  */
 public class Merger implements AutoCloseable {
-    private final List<BigLineReader> readers;
+    private final List<FileLineReader> readers;
     private final BufferedWriter writer;
 
     /**
@@ -18,18 +18,24 @@ public class Merger implements AutoCloseable {
         readers = new ArrayList<>(inputFiles.size());
         for (File inputFile : inputFiles) {
             if (inputFile.length() > 0) {
-                readers.add(new BigLineReader(inputFile));
+                readers.add(new FileLineReader(inputFile));
             }
         }
         writer = new BufferedWriter(new FileWriter(output));
     }
 
     @Override
-    public void close() throws Exception {
-        for (BigLineReader reader : readers) {
+    public void close() throws IOException {
+        for (FileLineReader reader : readers) {
             reader.close();
         }
         writer.close();
+    }
+
+    public static void mergeFiles(List<File> inputFiles, File output) throws IOException {
+        try (Merger merger = new Merger(inputFiles, output)) {
+            merger.merge();
+        }
     }
 
 
@@ -48,41 +54,43 @@ public class Merger implements AutoCloseable {
         }
     }
 
-    void merge() throws IOException {
+    public void merge() throws IOException {
         int linesPushed = 0;
         Global.log("Merging " + readers.size() + " files");
         //to avoid comparing the first of each file too many times, we use a heap
         SimpleHeap<LineWithOrigin> front = new SimpleHeap<>(readers.size());
         //load heap
         int readerIndex = 0;
-        for (BigLineReader reader : readers) {
+        for (FileLineReader reader : readers) {
             front.add(new LineWithOrigin(reader.getBigLine(), readerIndex++));
             linesPushed++;
         }
 
-        int numDrainedFiles = 0;
         int linesRead = 0;
-        int logStep = Math.max(readers.size() / 10, 1);
+        final int LOG_STEP_BYTES = 10_000_000;
+        int nextLogBytes = 0;
+        int bytesWritten = LOG_STEP_BYTES;
         while (!front.isEmpty()) {
+            //write first line
             LineWithOrigin first = front.poll();
-            first.line.write(writer);
+            bytesWritten += first.line.write(writer);
+            if (bytesWritten > nextLogBytes) {
+                nextLogBytes += LOG_STEP_BYTES;
+            }
             writer.newLine();
             linesRead++;
-            BigLineReader firstReader = readers.get(first.readerIndex);
+            //pull next line from the used input file into the heap
+            FileLineReader firstReader = readers.get(first.readerIndex);
             FileLine newLine = firstReader.getBigLine();
             if (newLine != null) {
                 front.add(new LineWithOrigin(newLine, first.readerIndex));
                 linesPushed++;
-            } else {
-                numDrainedFiles++;
-                if (numDrainedFiles % logStep == 0) {
-                    Global.log("Completed " + numDrainedFiles + "/" + readers.size());
-                }
             }
         }
-        Global.log(linesPushed + " lines pushed");
-        Global.log(linesRead + " lines read");
-
+        if (linesPushed != linesRead) {
+            Global.log(linesPushed + " lines pushed");
+            Global.log(linesRead + " lines read");
+        }
     }
 
 }

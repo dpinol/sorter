@@ -101,7 +101,7 @@ public class FileLineReaderTest {
     @Ignore
     @Test
     public void performanceBL() throws Exception {
-        try (BigLineReader reader = new BigLineReader(new File("/Users/dani/appDev/shibs/input.txt"));
+        try (FileLineReader reader = new FileLineReader(new File("/Users/dani/appDev/shibs/input.txt"));
              Timer timer = new Timer()) {
             int i = 0;
             FileLine bl;
@@ -118,7 +118,7 @@ public class FileLineReaderTest {
 
     @Test
     public void longLines10BL() throws Exception {
-        try (BigLineReader reader = new BigLineReader(new File("/Users/dani/appDev/shibs/10_long_lines.txt"));
+        try (FileLineReader reader = new FileLineReader(new File("/Users/dani/appDev/shibs/10_long_lines.txt"));
              Timer timer = new Timer()) {
             int i = 0;
             FileLine bl;
@@ -150,11 +150,11 @@ public class FileLineReaderTest {
 
     /**
      * Writes the lines to a single file
-     * reads file with BigLineReader, verifying it reads the written lines
+     * reads file with FileLineReader, verifying it reads the written lines
      */
     private void writeAndRead(String... lines2write) throws IOException {
         writeLines(lines2write);
-        try (BigLineReader reader = new BigLineReader(tempFile)) {
+        try (FileLineReader reader = new FileLineReader(tempFile)) {
             for (String line : lines2write) {
                 Global.log("testing line of length " + line.length());
                 String readLine = readLine(reader);
@@ -166,7 +166,7 @@ public class FileLineReaderTest {
         }
     }
 
-    private String readLine(BigLineReader reader) throws IOException {
+    private String readLine(FileLineReader reader) throws IOException {
         FileLine fileLine = reader.getBigLine();
         Iterator<String> iterator = fileLine.getIterator();
         StringBuilder builder = new StringBuilder();

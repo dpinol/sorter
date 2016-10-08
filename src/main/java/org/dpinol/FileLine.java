@@ -22,43 +22,46 @@ public abstract class FileLine implements Comparable<FileLine> {
 
     @Override
     public int compareTo(FileLine o) {
-        try {
-            int comp;
-            Iterator<String> i1 = getIterator();
-            Iterator<String> i2 = o.getIterator();
-            do {
-                if (!i1.hasNext() && !i2.hasNext()) {
-                    return 0;
-                } else if (!i1.hasNext() && i2.hasNext()) {
-                    return -1;
-                } else if (i1.hasNext() && !i2.hasNext()) {
-                    return 1;
-                }
-                String l1 = i1.next();
-                String l2 = i2.next();
-                comp = l1.compareTo(l2);
-                if (comp != 0) {
-                    return comp;
-                }
-            } while (true);
-        } catch (IOException e) {
-            throw new RuntimeException("comparing " + this + " to " + o, e);
-        }
+        int comp;
+        Iterator<String> i1 = getIterator();
+        Iterator<String> i2 = o.getIterator();
+        do {
+            if (!i1.hasNext() && !i2.hasNext()) {
+                return 0;
+            } else if (!i1.hasNext() && i2.hasNext()) {
+                return -1;
+            } else if (i1.hasNext() && !i2.hasNext()) {
+                return 1;
+            }
+            String l1 = i1.next();
+            String l2 = i2.next();
+            comp = l1.compareTo(l2);
+            if (comp != 0) {
+                return comp;
+            }
+        } while (true);
     }
 
     /**
-     *
      * @return an iterator to access the line in chunks of maximum {@link #LENGTH_THRESHOLD}
      * @throws IOException
      */
-    abstract public Iterator<String> getIterator() throws IOException;
+    abstract public Iterator<String> getIterator();
 
 
-    public void write(Writer writer) throws IOException {
+    /**
+     *
+     * @return number of bytes written
+     */
+    public long write(Writer writer) throws IOException {
+        long bytes = 0;
         Iterator<String> iterator = getIterator();
         while (iterator.hasNext()) {
-            writer.write(iterator.next());
+            String text = iterator.next();
+            bytes += text.length();
+            writer.write(text);
         }
+        return bytes;
     }
 }
 
@@ -136,7 +139,7 @@ class LongLine extends FileLine {
     }
 
     @Override
-    public Iterator<String> getIterator() throws IOException {
+    public Iterator<String> getIterator() {
         return new Iterator<String>() {
             long currentOffset = startFileOffset;
             boolean hasNext = true;

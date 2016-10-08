@@ -1,14 +1,12 @@
 package org.dpinol;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.channels.FileChannel;
+import java.nio.file.*;
 import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -18,37 +16,42 @@ import java.util.concurrent.TimeUnit;
  * This class splits the line, and distributes them to {@link ChunkSorter}'s,
  * each of which will create several sorted files, which {@link Merger} will merge
  * on a single file
+ * <p>
+ * 5G file:
+ * parallelizing sorting in map
+ * 5 threads: 30s map and 4m40s
+ * 2 threads: 35s map
+ * 8 threads: 33s
+ * with old 2 threads: 37s
+ * with 5 threads 52s
  */
 public class BigFileSorter {
 
     //TODO with threaded sort, 100_000 is much slower than 10_000
-    static final int LINES_PER_SORTER = 10_000;
-    private static final int NUM_SORTERS = 5; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
+    static final int LINES_PER_SORTER = 500_000;
+    static final int NUM_SORTERS = 256; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
     private static final int NUM_THREADS = NUM_SORTERS;
-    static final int QUEUE_BUCKET_SIZE = 10_000;
-    static final int QUEUE_NUM_BUCKETS = NUM_THREADS ;
+    static final int SORTER_QUEUE_SIZE = 1_0;
 
     private static final Random rnd = new Random();
 
     private final File input;
     private final File output;
     private final File tmpFolder;
-    private final List<File> tmpFiles = new ArrayList<>(NUM_SORTERS);
-    private List<ChunkSorter> sorters = new ArrayList<>(NUM_SORTERS);
+    private final Distributer distributer = new Distributer();
+//    private final List<File> tmpFiles = new ArrayList<>(NUM_SORTERS);
+    private final ChunkSorter[] sorters = new ChunkSorter[distributer.getMaximumIndices()];
     //with newWorkStealingPool I get RejectedExecutionException
-    private final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
-    private ArrayBlockingQueue<LineBucket> queue = new ArrayBlockingQueue<>(QUEUE_NUM_BUCKETS);
+    private final ExecutorService executorService = Executors.newWorkStealingPool(NUM_SORTERS);
 
 
     /**
      * @param tmpFolder if null, it will be written to output folder
      */
     BigFileSorter(File input, File output, File tmpFolder) throws IOException {
-        if (QUEUE_BUCKET_SIZE > LINES_PER_SORTER)
-            throw new AssertionError("QUEUE_BUCKET_SIZE > LINES_PER_SORTER");
         Global.log("*** RUNNING WITH " + NUM_THREADS + " threads, "
                 + LINES_PER_SORTER + " lines per sorter, "
-                + QUEUE_NUM_BUCKETS + " buckets of size " + QUEUE_BUCKET_SIZE);
+                + SORTER_QUEUE_SIZE + " lines in each sorter queue");
         this.input = input;
         this.output = output;
         if (tmpFolder == null) {
@@ -56,11 +59,9 @@ public class BigFileSorter {
             if (parent == null) parent = new File(".");
             Path tmpParent = Paths.get(parent.getAbsolutePath());
             this.tmpFolder = Files.createTempDirectory(tmpParent, "sorter", new FileAttribute[0]).toFile();
+            this.tmpFolder.deleteOnExit();
         } else {
             this.tmpFolder = tmpFolder;
-        }
-        for (int i = 0; i < BigFileSorter.NUM_SORTERS; i++) {
-            sorters.add(new ChunkSorter(this.tmpFolder, Integer.toString(i), executorService, queue));
         }
     }
 
@@ -74,25 +75,21 @@ public class BigFileSorter {
     private void map() throws Exception {
         long bytesRead = 0;
         long lastBytesLog = 0;
-        try (BigLineReader bigLineReader = new BigLineReader(input)) {
+        try (FileLineReader fileLineReader = new FileLineReader(input)) {
             FileLine fileLine;
-            LineBucket bucket = new LineBucket();
-            while ((fileLine = bigLineReader.getBigLine()) != null) {
+            while ((fileLine = fileLineReader.getBigLine()) != null) {
                 bytesRead += fileLine.getNumBytes();
-                if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
+                if (bytesRead - lastBytesLog > 50 * 1_024 * 1_204) {
                     Global.log("Read " + bytesRead / 1_024 + "kB");
                     lastBytesLog = bytesRead;
                 }
-//                ChunkSorter chunkSorter = sorters.get(rnd.nextInt(NUM_SORTERS));
-//                chunkSorter.addLine(fileLine);
-                bucket.add(fileLine);
-                if (bucket.isFull()) {
-                    queue.put(bucket);
-                    bucket = new LineBucket();
+                int sorterIndex = distributer.getSorterIndex(fileLine);
+                ChunkSorter chunkSorter = sorters[sorterIndex];
+                if (chunkSorter == null) {
+                    chunkSorter = new ChunkSorter(this.tmpFolder, Integer.toString(sorterIndex), executorService);
+                    sorters[sorterIndex] = chunkSorter;
                 }
-            }
-            if (!bucket.isEmpty()) {
-                queue.put(bucket);
+                chunkSorter.addLine(fileLine);
             }
             //must close before closing the reader, because they'll close the input file handle
             closeSorters();
@@ -110,15 +107,31 @@ public class BigFileSorter {
         }
 
         for (ChunkSorter sorter : sorters) {
-            sorter.close();
-            tmpFiles.addAll(sorter.getFiles());
+            if (sorter != null) {
+                sorter.close();
+//                tmpFiles.addAll(sorter.getFiles());
+            }
         }
     }
 
     private void reduce() throws Exception {
-        try (Merger merger = new Merger(tmpFiles, output)) {
-            merger.merge();
+//        Merger.mergeFiles(tmpFiles, output);
+        output.delete();
+        Global.log("Final merge start");
+        int numFullSorters = 0;
+        try (FileChannel outputFC = FileChannel.open(Paths.get(output.toString()), StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE)) {
+            for (ChunkSorter sorter : sorters) {
+                if (sorter == null)
+                    continue;
+                numFullSorters++;
+                Path inputPath = Paths.get(sorter.getMergedFile().toString());
+                try (FileChannel inputFC = FileChannel.open(inputPath, StandardOpenOption.READ)) {
+                    inputFC.transferTo(0, inputFC.size(), outputFC);
+                }
+            }
         }
+        Global.log("Final merge end of " + numFullSorters + " files");
     }
 
     public static void main(String[] args) throws Exception {
