@@ -5,6 +5,8 @@ import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /**
  * It gives access to a line parsed from a file. If shorter than {@link #LENGTH_THRESHOLD},
@@ -52,14 +54,26 @@ public abstract class FileLine implements Comparable<FileLine> {
     abstract public Iterator<String> getIterator() throws IOException;
 
 
-
-    public void write(Writer writer, boolean writeNewLine) throws IOException {
-        Iterator<String> iterator = getIterator();
-        while (iterator.hasNext()) {
-            writer.write(iterator.next());
-        }
-        writer.write(Global.LINE_SEPARATOR);
+    /**
+     * TODO use FileAsyncChannel?
+     */
+    public CompletableFuture<Void> write(Writer writer, ExecutorService es) {
+        CompletableFuture<Void> cf = new CompletableFuture<>();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        Iterator<String> iterator = getIterator();
+                        while (iterator.hasNext()) {
+                            writer.write(iterator.next());
+                        }
+                        writer.write(Global.LINE_SEPARATOR);
+                    } catch (IOException e) {
+                        cf.completeExceptionally(e);
+                    }
+                }, es);
+        return cf;
     }
+
 }
 
 /**
@@ -103,6 +117,7 @@ class ShortLine extends FileLine {
             }
         };
     }
+
 } //ShortLine
 
 /**

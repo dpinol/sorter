@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
@@ -24,17 +25,21 @@ import static org.dpinol.Global.LINE_SEPARATOR;
  */
 public class Merger implements AutoCloseable {
     private final List<AsyncFileLineReader> readers;
+    private final ExecutorService executorService;
     private final BufferedWriter writer;
     //to avoid comparing the first of each file too many times, we use a heap
     private final SimpleHeap<LineWithOrigin> front;
+    private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 10_000_000);
     private final LongAdder linesRead = new LongAdder();
     private final LongAdder linesPushed = new LongAdder();
+    private final LongAdder numDrainedFiles = new LongAdder();
 
     /**
      * @param inputFiles should not be empty
      */
-    public Merger(List<File> inputFiles, File output) throws IOException {
+    public Merger(List<File> inputFiles, File output, ExecutorService executorService) throws IOException {
         readers = new ArrayList<>(inputFiles.size());
+        this.executorService = executorService;
         for (File inputFile : inputFiles) {
             if (inputFile.length() > 0) {
                 readers.add(new AsyncFileLineReader(inputFile));
@@ -79,35 +84,38 @@ public class Merger implements AutoCloseable {
             cf.thenAccept(line -> front.add(new LineWithOrigin(line, index)));
             linesPushed.add(1);
         }
-        CompletableFuture.allOf(cfs).join();
-
-        int numDrainedFiles = 0;
-        int linesRead = 0;
-        int logStep = Math.max(readers.size() / 10, 1);
+        CompletableFuture<Void> frontUpdatedCF = CompletableFuture.allOf(cfs);
+        CompletableFuture<Void> lineWrittenCF =  new CompletableFuture<>();
+        lineWrittenCF.complete(null);
         while (!front.isEmpty()) {
+            frontUpdatedCF.join();
             LineWithOrigin first = front.poll();
-            first.line.write(writer, true);
-            pushNext();
+            lineWrittenCF = lineWrittenCF.thenCompose( (Void v) ->
+                first.line.write(writer, executorService));
+            frontUpdatedCF = pushFromReader(first.readerIndex);
         }
         Global.log(linesPushed + " lines pushed");
         Global.log(linesRead + " lines read");
     }
 
-    void pushFromReader(final int index) {
+    /**
+     * Actually we're not making any use of being async now. Maybe we can read from all files
+     * at the same time, so that we have at least BigLine in a cache?
+     */
+    CompletableFuture<Void> pushFromReader(final int index) {
+        final int LOG_STEP_BYTES = 10_000_000;
         AsyncFileLineReader firstReader = readers.get(index);
-        CompletableFuture<FileLine> cf = firstReader.read();
-        cf.thenAccept(
+        return firstReader.read().thenAccept(
                 newLine -> {
                     if (newLine != null) {
                         front.add(new LineWithOrigin(newLine, index));
                         linesPushed.add(1);
+                        numBytesRead.inc(newLine.getNumBytes());
                     } else {
-                        numDrainedFiles++;
-                        if (numDrainedFiles % logStep == 0) {
-                            Global.log("Completed " + numDrainedFiles + "/" + readers.size());
-                        }
+                        numDrainedFiles.add(1);
                     }
                 }
+        );
     }
 
 }
