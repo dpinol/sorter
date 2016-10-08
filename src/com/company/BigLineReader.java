@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 
 import static com.company.global.BUFFER_SIZE;
 import static com.company.global.LINE_SEPARATOR;
+import static com.company.global.LINE_SEPARATOR_BYTES;
 
 /**
  * Created by dani on 23/09/16.
@@ -17,9 +18,11 @@ import static com.company.global.LINE_SEPARATOR;
 public class BigLineReader implements AutoCloseable {
     private final FileChannel fileChannel;
     private final ByteBuffer buffer;
+    private final ByteArrayOutputStream lineHead = new ByteArrayOutputStream(BUFFER_SIZE);
     private long lineStartFileOffset = 0;
     private int currentBufferOffset = 0;
     private int bufferSize = 0;
+
 
     public BigLineReader(File input) throws IOException {
         this(Paths.get(input.getAbsolutePath()));
@@ -38,12 +41,13 @@ public class BigLineReader implements AutoCloseable {
     BigLine getBigLine() throws IOException {
         long lineLength = 0;
         int nlPos;
-        ByteArrayOutputStream lineHead = new ByteArrayOutputStream(BUFFER_SIZE);
+        lineHead.reset();
         do {
             if (currentBufferOffset >= bufferSize) {
-                buffer.rewind();
+                buffer.clear();
                 currentBufferOffset = 0;
                 bufferSize = fileChannel.read(buffer);
+                buffer.flip();
                 if (bufferSize < 0) {
                     return null;
                 }
@@ -75,17 +79,17 @@ public class BigLineReader implements AutoCloseable {
      *
      * @return -1 if not found
      */
-    private int findNewLine(ByteBuffer aBuffer, int startIndex, long bufSize) {
-        byte[] array = buffer.array();
+    private static int findNewLine(ByteBuffer aBuffer, int startIndex, long bufSize) {
+        byte[] array = aBuffer.array();
         //TODO is there an efficient char search?
         for (int i = startIndex; i < bufSize; i++) {
-            if (arrayContains(array, i, LINE_SEPARATOR.getBytes()))
+            if (arrayContains(array, i, LINE_SEPARATOR_BYTES))
                 return i;
         }
         return -1;
     }
 
-    private boolean arrayContains(byte[] haystack, int offset, byte[] needle) {
+    private static boolean arrayContains(byte[] haystack, int offset, byte[] needle) {
         for (int i = 0; i < needle.length; i++) {
             if (haystack[i + offset] != needle[i])
                 return false;

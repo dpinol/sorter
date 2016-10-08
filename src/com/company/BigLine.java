@@ -8,6 +8,7 @@ import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
 import static com.company.global.BUFFER_SIZE;
+import static com.company.global.log;
 
 /**
  * Created by dani on 22/09/16.
@@ -117,12 +118,9 @@ class LongLine extends BigLine {
 
     /**
      * @param fileChannel     LongLine will not query nor change its current position
-     * @param lineHead
-     * @param startFileOffset
-     * @param numBytes
-     * @throws IOException
      */
     public LongLine(FileChannel fileChannel, ByteArrayOutputStream lineHead, long startFileOffset, long numBytes) throws IOException {
+        log("LONG LINE************");
         this.fileChannel = fileChannel;
         head = lineHead;
         this.startFileOffset = startFileOffset;
@@ -166,21 +164,6 @@ class LongLine extends BigLine {
         };
     }
 
-//        @Override
-//    public String substring(long startIndex, long endIndex) throws IOException {
-//        if (endIndex <= head.length()) {
-//            return head.substring((int) startIndex, (int) endIndex);
-//        } else {
-////            String fetched = fetchFromDisk(startIndex - head.length(), endIndex);
-////            if (fetched != null) {
-////                return head + fetched;
-////            } else {
-////                return head;
-////            }
-////        }
-//            return lineHead.
-//        }
-//
 
     /**
      * @return the full length of the line

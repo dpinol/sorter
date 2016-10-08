@@ -13,6 +13,7 @@ public class global {
     public static final String ENCODING = "UTF-8";
     public static final String LINE_SEPARATOR = java.security.AccessController.doPrivileged(
             new sun.security.action.GetPropertyAction("line.separator"));
+    public static final byte[] LINE_SEPARATOR_BYTES = LINE_SEPARATOR.getBytes();
 
     public static void log(String str) {
         System.out.println(new Date() +  ": " + str);
