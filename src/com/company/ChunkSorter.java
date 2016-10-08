@@ -1,7 +1,6 @@
 package com.company;
 
 import java.io.*;
-import java.util.PriorityQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RecursiveAction;
 
@@ -15,7 +14,7 @@ class ChunkSorter implements AutoCloseable {
     private File nextTmpFile;
     private final String id;
     private final ExecutorService executorService;
-    private PriorityQueue<BigLine> heap = new PriorityQueue<>(BigFileSorter.LINES_PER_SORTER);
+    private SimpleHeap<BigLine> heap = new SimpleHeap<>(BigFileSorter.LINES_PER_SORTER);
 
 
     ChunkSorter(File tmpFolder, String id, ExecutorService executorService) throws IOException {
@@ -48,7 +47,7 @@ class ChunkSorter implements AutoCloseable {
     }
 
     private void flush() throws IOException {
-        PriorityQueue<BigLine> newHeap = new PriorityQueue<>(BigFileSorter.LINES_PER_SORTER);
+        SimpleHeap<BigLine> newHeap = new SimpleHeap<>(BigFileSorter.LINES_PER_SORTER);
         executorService.submit(new Flusher(heap, nextTmpFile));
         heap = newHeap;
     }
@@ -61,10 +60,10 @@ class ChunkSorter implements AutoCloseable {
     }
 
     private static class Flusher implements Runnable {
-        private final PriorityQueue<BigLine> heapToFlush;
+        private final SimpleHeap<BigLine> heapToFlush;
         private final File tmpFile;
 
-        Flusher(PriorityQueue<BigLine> heapToFlush, File tmpFile) {
+        Flusher(SimpleHeap<BigLine> heapToFlush, File tmpFile) {
             this.heapToFlush = heapToFlush;
             this.tmpFile = tmpFile;
         }

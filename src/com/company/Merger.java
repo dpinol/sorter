@@ -3,7 +3,6 @@ package com.company;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.PriorityQueue;
 
 /**
  * Created by dani on 20/09/16.
@@ -57,7 +56,7 @@ public class Merger implements AutoCloseable {
         int linesPushed = 0;
         Global.log("Merging " + readers.size() + " files");
         //to avoid comparing the first of each file too many times, we use a heap
-        PriorityQueue<LineWithOrigin> front = new PriorityQueue<>();
+        SimpleHeap<LineWithOrigin> front = new SimpleHeap<>(readers.size());
         //load heap
         int readerIndex = 0;
         for (BigLineReader reader : readers) {
@@ -67,7 +66,7 @@ public class Merger implements AutoCloseable {
 
         int numDrainedFiles = 0;
         int linesRead = 0;
-        int logStep = readers.size() / 10;
+        int logStep = Math.max(readers.size() / 10, 1);
         while (!front.isEmpty()) {
             LineWithOrigin first = front.poll();
             first.line.write(writer);

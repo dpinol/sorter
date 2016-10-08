@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Random;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.company.Global.log;
 
@@ -47,10 +48,22 @@ public class Utils {
                 Paths.get(path.getAbsolutePath())))) {
             IntStream.range(0, numLines)
                     .mapToObj(String::valueOf)
-                    .map( num -> num + suf)
+                    .map(num -> num + suf)
                     .sorted(Utils::randomSorter)
                     .forEach(pw::println);
         }
+    }
+
+    /**
+     * creates stream from 0 to n-1, and returns it shuffled
+     * @param n
+     * @return
+     */
+    public static IntStream shuffledIntRange(int n) {
+        return IntStream.range(0, n)
+                .mapToObj(Integer::valueOf)
+                .sorted(Utils::randomSorter)
+                .mapToInt(x -> x);
     }
 
 }
