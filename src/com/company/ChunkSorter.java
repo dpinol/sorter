@@ -6,6 +6,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RecursiveAction;
 
 /**
+ * They get lines which are stored on a heap, and when it has more than {@link BigFileSorter#LINES_PER_SORTER} lines
+ * they are flushed. The flush is done on a different thread
  * Created by dani on 20/09/16.
  */
 class ChunkSorter implements AutoCloseable {
@@ -70,11 +72,12 @@ class ChunkSorter implements AutoCloseable {
         @Override
         public void run() {
             try {
-                Global.log("Flushing file " + tmpFile);
+                //Global.log("Flushing file " + tmpFile);
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
                     BigLine line;
                     while ((line = heapToFlush.poll()) != null) {
                         line.write(writer);
+                        writer.newLine();
                     }
                 }
             } catch (Exception e) {

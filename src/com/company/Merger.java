@@ -54,29 +54,39 @@ public class Merger implements AutoCloseable {
     }
 
     void merge() throws IOException {
+        int linesPushed = 0;
         Global.log("Merging " + readers.size() + " files");
         //to avoid comparing the first of each file too many times, we use a heap
         PriorityQueue<LineWithOrigin> front = new PriorityQueue<>();
         //load heap
-        int index = 0;
+        int readerIndex = 0;
         for (BigLineReader reader : readers) {
-            front.add(new LineWithOrigin(reader.getBigLine(), index++));
+            front.add(new LineWithOrigin(reader.getBigLine(), readerIndex++));
+            linesPushed++;
         }
 
         int numDrainedFiles = 0;
+        int linesRead = 0;
+        int logStep = readers.size() / 10;
         while (!front.isEmpty()) {
             LineWithOrigin first = front.poll();
             first.line.write(writer);
             writer.newLine();
+            linesRead++;
             BigLineReader firstReader = readers.get(first.readerIndex);
             BigLine newLine = firstReader.getBigLine();
             if (newLine != null) {
                 front.add(new LineWithOrigin(newLine, first.readerIndex));
+                linesPushed++;
             } else {
                 numDrainedFiles++;
-                Global.log("Completed " + numDrainedFiles + "/" + readers.size());
+                if (numDrainedFiles % logStep == 0) {
+                    Global.log("Completed " + numDrainedFiles + "/" + readers.size());
+                }
             }
         }
+        Global.log(linesPushed + " lines pushed");
+        Global.log(linesRead + " lines read");
 
     }
 

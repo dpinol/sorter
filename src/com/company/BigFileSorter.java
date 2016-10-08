@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit;
 public class BigFileSorter {
     static final int READ_BUF_SIZE = 1024 * 1024;
     static final int LINES_PER_SORTER = 100_000;
-    static final int NUM_SORTERS = 10;
+    static final int NUM_SORTERS = 2;
+    static final int NUM_THREADS= NUM_SORTERS;
     static final Random rnd = new Random();
 
     private final File input;
@@ -24,7 +25,7 @@ public class BigFileSorter {
     private final List<File> tmpFiles = new ArrayList<>(NUM_SORTERS);
     List<ChunkSorter> sorters = new ArrayList<>(NUM_SORTERS);
     //with newWorkStealingPool I get RejectedExecutionException
-    private final ExecutorService executorService = Executors.newFixedThreadPool(1);
+    private final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
 
 
     /**
@@ -34,7 +35,7 @@ public class BigFileSorter {
      * @throws IOException
      */
     BigFileSorter(File input, File output, File tmpFolder) throws IOException {
-        Global.log("********************** ONLY 1 THREAD!**********************");
+        Global.log("********************** RUNNING WITH " +  NUM_THREADS + " threads **********************");
         this.input = input;
         this.output = output;
         if (tmpFolder == null) {
@@ -79,7 +80,7 @@ public class BigFileSorter {
         }
     }
 
-    void closeSorters() throws IOException, InterruptedException {
+    private void closeSorters() throws IOException, InterruptedException {
         for (ChunkSorter sorter : sorters) {
             sorter.close();
         }

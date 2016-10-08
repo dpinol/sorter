@@ -1,5 +1,6 @@
 package com.company;
 
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -8,6 +9,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Paths;
 import java.util.Iterator;
+import java.util.Random;
 
 import static com.company.Global.*;
 import static com.company.Utils.createLine;
@@ -18,9 +20,9 @@ import static org.junit.Assert.*;
  */
 public class BigLineReaderTest {
     private File tempFile;
+    private final Random rnd = new Random();
 
-
-    @org.junit.Before
+    @Before
     public void setUp() throws Exception {
         tempFile = File.createTempFile("BigLineReaderTest", "test");
         tempFile.deleteOnExit();
@@ -34,10 +36,21 @@ public class BigLineReaderTest {
 
     @Test
     public void longLines() throws Exception {
-        String line1 = createLine(BUFFER_SIZE - 1);
-        String line2 = createLine(BUFFER_SIZE);
-        String line3 = createLine(BUFFER_SIZE + 1);
-        writeAndRead(line1, line2, line3);
+        String lines[] = {createLine(BUFFER_SIZE),
+                createLine(BUFFER_SIZE + 1),
+                createLine(BUFFER_SIZE * 2),
+                createLine(BUFFER_SIZE * 2 + 1)};
+        writeAndRead(lines);
+    }
+
+
+    @Test
+    public void longRndLines() throws Exception {
+        String lines[] = new String[50];
+        for (int i = 0; i < lines.length; i++) {
+            lines[i] = createLine(rnd.nextInt(BUFFER_SIZE * 3));
+        }
+        writeAndRead(lines);
     }
 
 
@@ -135,11 +148,18 @@ public class BigLineReaderTest {
     }
 
 
+    /**
+     * Writes the lines to a single file
+     * reads file with BigLineReader, verifying it reads the written lines
+     */
     private void writeAndRead(String... lines2write) throws IOException {
         writeLines(lines2write);
         try (BigLineReader reader = new BigLineReader(tempFile)) {
             for (String line : lines2write) {
+                Global.log("testing line of length " + line.length());
                 String readLine = readLine(reader);
+                assertFalse(readLine.contains(Global.LINE_SEPARATOR));
+                assertEquals("expected length", line.length(), readLine.length());
                 assertEquals(line, readLine);
             }
             assertNull(reader.getBigLine());

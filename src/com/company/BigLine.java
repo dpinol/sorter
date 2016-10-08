@@ -149,13 +149,14 @@ class LongLine extends BigLine {
                     ret = head;
                 } else {
                     try {
-                        if (getRelativeCurrentOffset() + BUFFER_SIZE > numBytes) {
-                            buffer.limit((int) (numBytes - getRelativeCurrentOffset()));
-                        }
+//                        if (getRelativeCurrentOffset() + BUFFER_SIZE > numBytes) {
+//                            buffer.limit((int) (numBytes - getRelativeCurrentOffset()));
+//                        }
                         buffer.clear();
-                        fileChannel.read(buffer, currentOffset);
+                        int read = fileChannel.read(buffer, currentOffset);
+                        int chunkSize = Math.min(read, (int) (numBytes - getRelativeCurrentOffset()));
+                        ret = new String(buffer.array(), 0, chunkSize);
                         currentOffset += BUFFER_SIZE;
-                        ret = new String(buffer.array(), 0, buffer.limit());
                     } catch (IOException e) {
                         throw new RuntimeException("reading file", e);
                     }

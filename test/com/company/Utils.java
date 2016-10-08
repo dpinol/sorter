@@ -29,16 +29,25 @@ public class Utils {
         return sb.toString();
     }
 
+    /**
+     * Useful to shuffle a collection
+     */
     static int randomSorter(Object o1, Object o2) {
         if (o1.equals(o2)) return 0;
         return (rnd.nextBoolean()) ? 1 : -1;
     }
 
-    public static void writeRandomLines(File path, int numLines) throws IOException {
+    public static void writeRandomLines(File path, int numLines, int minLineLen) throws IOException {
+        char sufChars[] = new char[minLineLen];
+        for (int i = 0; i < minLineLen; i++) {
+            sufChars[i] = 'p';
+        }
+        String suf = new String(sufChars);
         try (PrintWriter pw = new PrintWriter(Files.newBufferedWriter(
                 Paths.get(path.getAbsolutePath())))) {
             IntStream.range(0, numLines)
                     .mapToObj(String::valueOf)
+                    .map( num -> num + suf)
                     .sorted(Utils::randomSorter)
                     .forEach(pw::println);
         }
