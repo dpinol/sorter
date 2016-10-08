@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class BigFileSorter {
 
     //TODO with threaded sort, 100_000 is much slower than 10_000
-    static final int LINES_PER_SORTER = 500_000;
+    static final int LINES_PER_SORTER = 200_000;
     static final int NUM_SORTERS = 256; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
     private static final int NUM_THREADS = NUM_SORTERS;
     static final int SORTER_QUEUE_SIZE = 1_0;
