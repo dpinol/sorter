@@ -1,13 +1,9 @@
 package com.company;
 
 import java.io.*;
-import java.nio.file.Paths;
-import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RecursiveAction;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by dani on 20/09/16.
@@ -31,7 +27,7 @@ class ChunkSorter implements AutoCloseable {
     /**
      * If a new temporary file is created, it's returned. Otherwise, null
      */
-    public File addLine(BigLine line) throws Exception {
+    public File addLine(BigLine line) throws IOException {
         if (heap.size() >= BigFileSorter.LINES_PER_SORTER) {
             flush();
             createTmpFile();
@@ -74,7 +70,7 @@ class ChunkSorter implements AutoCloseable {
         @Override
         public void run() {
             try {
-                global.log("Flushing file " + tmpFile);
+                Global.log("Flushing file " + tmpFile);
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
                     BigLine line;
                     while ((line = heapToFlush.poll()) != null) {

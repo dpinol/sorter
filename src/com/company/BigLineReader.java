@@ -8,17 +8,16 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static com.company.global.BUFFER_SIZE;
-import static com.company.global.LINE_SEPARATOR;
-import static com.company.global.LINE_SEPARATOR_BYTES;
+import static com.company.Global.BUFFER_SIZE;
+import static com.company.Global.LINE_SEPARATOR_BYTES;
 
 /**
  * Created by dani on 23/09/16.
  */
 public class BigLineReader implements AutoCloseable {
+    private final Path input;
     private final FileChannel fileChannel;
     private final ByteBuffer buffer;
-    private final ByteArrayOutputStream lineHead = new ByteArrayOutputStream(BUFFER_SIZE);
     private long lineStartFileOffset = 0;
     private int currentBufferOffset = 0;
     private int bufferSize = 0;
@@ -30,10 +29,15 @@ public class BigLineReader implements AutoCloseable {
 
     public BigLineReader(Path input) throws IOException {
         fileChannel = FileChannel.open(input);
+        this.input = input;
         buffer = ByteBuffer.allocate(BUFFER_SIZE);
         //set to end so that we're forced to read from file initially
 //        currentBufferOffset = BUFFER_SIZE;
     }
+
+
+    //reading 800Mb of short lines takes 8s instead of 3s if using 10 * 1024
+    final ByteArrayOutputStream lineHead = new ByteArrayOutputStream(BUFFER_SIZE);
 
     /**
      * @return null when EOF found
@@ -49,7 +53,7 @@ public class BigLineReader implements AutoCloseable {
                 bufferSize = fileChannel.read(buffer);
                 buffer.flip();
                 if (bufferSize < 0) {
-                    return null;
+                    break;
                 }
             }
             nlPos = findNewLine(buffer, currentBufferOffset, bufferSize);
@@ -60,18 +64,21 @@ public class BigLineReader implements AutoCloseable {
                 newChunkLen = nlPos - currentBufferOffset;
             lineLength += newChunkLen;
             if (lineHead.size() < BUFFER_SIZE) {
-                int bytesToCopy =Math.min(BUFFER_SIZE, newChunkLen);
+                int bytesToCopy = Math.min(BUFFER_SIZE, newChunkLen);
                 bytesToCopy = Math.min(bytesToCopy, BUFFER_SIZE - lineHead.size());
-                lineHead.write(buffer.array(), currentBufferOffset, bytesToCopy );
+                lineHead.write(buffer.array(), currentBufferOffset, bytesToCopy);
             }
             currentBufferOffset += newChunkLen + 1;
         } while (nlPos < 0);
+        if (lineHead.size() == 0) {
+            return null;
+        }
         long curStartOffset = lineStartFileOffset;
         lineStartFileOffset += lineLength + 1;
         if (lineLength <= BUFFER_SIZE)
             return new ShortLine(lineHead.toString());
         else
-            return new LongLine(fileChannel, lineHead, curStartOffset, lineLength);
+            return new LongLine(fileChannel, lineHead.toString(), curStartOffset, lineLength);
     }
 
     /**

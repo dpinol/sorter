@@ -1,14 +1,13 @@
 package com.company;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
-import static com.company.global.BUFFER_SIZE;
-import static com.company.global.log;
+import static com.company.Global.BUFFER_SIZE;
+import static com.company.Global.log;
 
 /**
  * Created by dani on 22/09/16.
@@ -61,7 +60,6 @@ public abstract class BigLine implements Comparable<BigLine> {
         Iterator<String> iterator = getIterator();
         while (iterator.hasNext()) {
             writer.write(iterator.next());
-            writer.write(global.LINE_SEPARATOR);
         }
     }
 }
@@ -109,7 +107,7 @@ class ShortLine extends BigLine {
 
 class LongLine extends BigLine {
     /* we cache first buffer so that most of times we don't need to hit the disk for comparing with other lines*/
-    private final ByteArrayOutputStream head;
+    private final String head;
     private final ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
     private final long startFileOffset;
     private final long numBytes;
@@ -119,7 +117,7 @@ class LongLine extends BigLine {
     /**
      * @param fileChannel     LongLine will not query nor change its current position
      */
-    public LongLine(FileChannel fileChannel, ByteArrayOutputStream lineHead, long startFileOffset, long numBytes) throws IOException {
+    public LongLine(FileChannel fileChannel, String lineHead, long startFileOffset, long numBytes) throws IOException {
         log("LONG LINE************");
         this.fileChannel = fileChannel;
         head = lineHead;
@@ -139,17 +137,22 @@ class LongLine extends BigLine {
                 return hasNext;
             }
 
+            long getRelativeCurrentOffset() {
+                return currentOffset - startFileOffset;
+            }
+
             @Override
             public String next() {
                 String ret;
                 if (currentOffset == startFileOffset) {
-                    currentOffset += head.size();
-                    ret = head.toString();
+                    currentOffset += head.length();
+                    ret = head;
                 } else {
                     try {
-                        if (currentOffset + BUFFER_SIZE > numBytes) {
-                            buffer.limit((int) (startFileOffset + numBytes - currentOffset));
+                        if (getRelativeCurrentOffset() + BUFFER_SIZE > numBytes) {
+                            buffer.limit((int) (numBytes - getRelativeCurrentOffset()));
                         }
+                        buffer.clear();
                         fileChannel.read(buffer, currentOffset);
                         currentOffset += BUFFER_SIZE;
                         ret = new String(buffer.array(), 0, buffer.limit());

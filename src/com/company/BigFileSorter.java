@@ -24,7 +24,7 @@ public class BigFileSorter {
     private final List<File> tmpFiles = new ArrayList<>(NUM_SORTERS);
     List<ChunkSorter> sorters = new ArrayList<>(NUM_SORTERS);
     //with newWorkStealingPool I get RejectedExecutionException
-    private final ExecutorService executorService = Executors.newFixedThreadPool(2);
+    private final ExecutorService executorService = Executors.newFixedThreadPool(1);
 
 
     /**
@@ -34,6 +34,7 @@ public class BigFileSorter {
      * @throws IOException
      */
     BigFileSorter(File input, File output, File tmpFolder) throws IOException {
+        Global.log("********************** ONLY 1 THREAD!**********************");
         this.input = input;
         this.output = output;
         if (tmpFolder == null) {
@@ -64,7 +65,7 @@ public class BigFileSorter {
             while ((bigLine = bigLineReader.getBigLine()) != null) {
                 bytesRead += bigLine.getNumBytes();
                 if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
-                    global.log("Read " + bytesRead / 1_024 + "kB");
+                    Global.log("Read " + bytesRead / 1_024 + "kB");
                     lastBytesLog = bytesRead;
                 }
                 ChunkSorter chunkSorter = sorters.get(rnd.nextInt(NUM_SORTERS));
@@ -73,8 +74,9 @@ public class BigFileSorter {
                     tmpFiles.add(newFile);
                 }
             }
+            //must close before closing the reader, because they'll close the input file handle
+            closeSorters();
         }
-        closeSorters();
     }
 
     void closeSorters() throws IOException, InterruptedException {
@@ -83,7 +85,7 @@ public class BigFileSorter {
         }
         executorService.shutdown();
         while (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
-            global.log("Waiting for flushers");
+            Global.log("Waiting for flushers");
         }
 
     }

@@ -5,7 +5,7 @@ import java.util.Date;
 /**
  * Created by dani on 23/09/16.
  */
-public class global {
+public class Global {
     /**
      * With 1k, it takes 1min53s to sort file 800M with only short lines
      */
