@@ -1,15 +1,34 @@
 package org.dpinol;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousChannelGroup;
+import java.nio.channels.AsynchronousFileChannel;
+import java.nio.channels.CompletionHandler;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.LongAdder;
+
+import static org.dpinol.Global.BUFFER_SIZE;
+import static org.dpinol.Global.LINE_SEPARATOR;
 
 /**
  * Merges a list of sorted files into a single one
  */
 public class Merger implements AutoCloseable {
-    private final List<BigLineReader> readers;
+    private final List<AsyncFileLineReader> readers;
     private final BufferedWriter writer;
+    //to avoid comparing the first of each file too many times, we use a heap
+    private final SimpleHeap<LineWithOrigin> front;
+    private final LongAdder linesRead = new LongAdder();
+    private final LongAdder linesPushed = new LongAdder();
 
     /**
      * @param inputFiles should not be empty
@@ -18,15 +37,16 @@ public class Merger implements AutoCloseable {
         readers = new ArrayList<>(inputFiles.size());
         for (File inputFile : inputFiles) {
             if (inputFile.length() > 0) {
-                readers.add(new BigLineReader(inputFile));
+                readers.add(new AsyncFileLineReader(inputFile));
             }
         }
+        front = new SimpleHeap<>(readers.size());
         writer = new BufferedWriter(new FileWriter(output));
     }
 
     @Override
     public void close() throws Exception {
-        for (BigLineReader reader : readers) {
+        for (AsyncFileLineReader reader : readers) {
             reader.close();
         }
         writer.close();
@@ -49,40 +69,45 @@ public class Merger implements AutoCloseable {
     }
 
     void merge() throws IOException {
-        int linesPushed = 0;
         Global.log("Merging " + readers.size() + " files");
-        //to avoid comparing the first of each file too many times, we use a heap
-        SimpleHeap<LineWithOrigin> front = new SimpleHeap<>(readers.size());
         //load heap
         int readerIndex = 0;
-        for (BigLineReader reader : readers) {
-            front.add(new LineWithOrigin(reader.getBigLine(), readerIndex++));
-            linesPushed++;
+        CompletableFuture<FileLine>[] cfs = new CompletableFuture[readers.size()];
+        for (AsyncFileLineReader reader : readers) {
+            final int index = readerIndex++;
+            CompletableFuture<FileLine> cf = reader.read();
+            cf.thenAccept(line -> front.add(new LineWithOrigin(line, index)));
+            linesPushed.add(1);
         }
+        CompletableFuture.allOf(cfs).join();
 
         int numDrainedFiles = 0;
         int linesRead = 0;
         int logStep = Math.max(readers.size() / 10, 1);
         while (!front.isEmpty()) {
             LineWithOrigin first = front.poll();
-            first.line.write(writer);
-            writer.newLine();
-            linesRead++;
-            BigLineReader firstReader = readers.get(first.readerIndex);
-            FileLine newLine = firstReader.getBigLine();
-            if (newLine != null) {
-                front.add(new LineWithOrigin(newLine, first.readerIndex));
-                linesPushed++;
-            } else {
-                numDrainedFiles++;
-                if (numDrainedFiles % logStep == 0) {
-                    Global.log("Completed " + numDrainedFiles + "/" + readers.size());
-                }
-            }
+            first.line.write(writer, true);
+            pushNext();
         }
         Global.log(linesPushed + " lines pushed");
         Global.log(linesRead + " lines read");
+    }
 
+    void pushFromReader(final int index) {
+        AsyncFileLineReader firstReader = readers.get(index);
+        CompletableFuture<FileLine> cf = firstReader.read();
+        cf.thenAccept(
+                newLine -> {
+                    if (newLine != null) {
+                        front.add(new LineWithOrigin(newLine, index));
+                        linesPushed.add(1);
+                    } else {
+                        numDrainedFiles++;
+                        if (numDrainedFiles % logStep == 0) {
+                            Global.log("Completed " + numDrainedFiles + "/" + readers.size());
+                        }
+                    }
+                }
     }
 
 }

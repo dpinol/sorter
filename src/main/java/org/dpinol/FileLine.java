@@ -6,8 +6,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
-import static org.dpinol.Global.log;
-
 /**
  * It gives access to a line parsed from a file. If shorter than {@link #LENGTH_THRESHOLD},
  * the whole text is held in a {@link ShortLine}. Otherwise, a {@link LongLine} holds the
@@ -54,11 +52,13 @@ public abstract class FileLine implements Comparable<FileLine> {
     abstract public Iterator<String> getIterator() throws IOException;
 
 
-    public void write(Writer writer) throws IOException {
+
+    public void write(Writer writer, boolean writeNewLine) throws IOException {
         Iterator<String> iterator = getIterator();
         while (iterator.hasNext()) {
             writer.write(iterator.next());
         }
+        writer.write(Global.LINE_SEPARATOR);
     }
 }
 

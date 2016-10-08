@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 /**
  * They get lines which are stored on a heap, and when it has more than {@link BigFileSorter#LINES_PER_SORTER} lines
  * they are flushed. The flush is done on a different thread
- * Created by dani on 20/09/16.
  */
 class ChunkSorter implements AutoCloseable {
     private final File tmpFolder;
@@ -90,7 +89,7 @@ class ChunkSorter implements AutoCloseable {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
                 FileLine line;
                 while ((line = heap.poll()) != null) {
-                    line.write(writer);
+                    line.write(writer, LINE_SEPARATOR);
                     writer.newLine();
                 }
             }
