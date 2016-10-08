@@ -1,14 +1,14 @@
 package com.company;
 
-import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.junit.matchers.JUnitMatchers;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 
 /**
  * Created by dani on 28/09/16.
@@ -58,7 +58,7 @@ public class BigFileSorterTest {
             String line;
             while ((line = bufferedReader.readLine()) != null) {
                 readLines++;
-                Assert.assertThat(line, line.length(), Matchers.greaterThan(minLen));
+                Assert.assertTrue(line, line.length() > minLen);
             }
         }
         Assert.assertEquals(numLines, readLines);

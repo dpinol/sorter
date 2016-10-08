@@ -38,15 +38,6 @@ public class SimpleHeap<E extends Comparable<E>> {
         size++;
     }
 
-    private void moveUp(E item) {
-    }
-
-
-    int getParentPos(int pos) {
-        if (pos <= 0)
-            throw new IllegalStateException("root has no parent");
-        return (pos - 1) / 2;
-    }
 
     /**
      * @return null when empty
@@ -90,5 +81,9 @@ public class SimpleHeap<E extends Comparable<E>> {
 
     public boolean isEmpty() {
         return size == 0;
+    }
+
+    public boolean isFull() {
+        return capacity == size;
     }
 }
