@@ -2,6 +2,7 @@ package com.company;
 
 import java.io.*;
 import java.nio.file.Paths;
+import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,11 +17,12 @@ class ChunkSorter implements AutoCloseable {
     private File nextTmpFile;
     private final String id;
     private final ExecutorService executorService;
-    private PriorityQueue<String> heap = new PriorityQueue<>(BigFileSorter.LINES_PER_SORTER);
+    private PriorityQueue<BigLine> heap = new PriorityQueue<>(BigFileSorter.LINES_PER_SORTER);
 
 
     ChunkSorter(File tmpFolder, String id, ExecutorService executorService) throws IOException {
         this.tmpFolder = tmpFolder;
+        tmpFolder.deleteOnExit();
         this.id = id;
         this.executorService = executorService;
         createTmpFile();
@@ -29,7 +31,7 @@ class ChunkSorter implements AutoCloseable {
     /**
      * If a new temporary file is created, it's returned. Otherwise, null
      */
-    public File addLine(String line) throws Exception {
+    public File addLine(BigLine line) throws Exception {
         if (heap.size() >= BigFileSorter.LINES_PER_SORTER) {
             flush();
             createTmpFile();
@@ -44,10 +46,11 @@ class ChunkSorter implements AutoCloseable {
 
     private void createTmpFile() throws IOException {
         nextTmpFile = File.createTempFile("sort_tmp", id, tmpFolder);
+        nextTmpFile.deleteOnExit();
     }
 
     private void flush() throws IOException {
-        PriorityQueue<String> newHeap = new PriorityQueue<>(BigFileSorter.LINES_PER_SORTER);
+        PriorityQueue<BigLine> newHeap = new PriorityQueue<>(BigFileSorter.LINES_PER_SORTER);
         executorService.submit(new Flusher(heap, nextTmpFile));
         heap = newHeap;
     }
@@ -60,10 +63,10 @@ class ChunkSorter implements AutoCloseable {
     }
 
     private static class Flusher implements Runnable {
-        private final PriorityQueue<String> heapToFlush;
+        private final PriorityQueue<BigLine> heapToFlush;
         private final File tmpFile;
 
-        Flusher(PriorityQueue<String> heapToFlush, File tmpFile) {
+        Flusher(PriorityQueue<BigLine> heapToFlush, File tmpFile) {
             this.heapToFlush = heapToFlush;
             this.tmpFile = tmpFile;
         }
@@ -71,12 +74,11 @@ class ChunkSorter implements AutoCloseable {
         @Override
         public void run() {
             try {
-                System.out.println("Flushing file " + tmpFile);
+                global.log("Flushing file " + tmpFile);
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
-                    String line;
+                    BigLine line;
                     while ((line = heapToFlush.poll()) != null) {
-                        //TODO test if better 2 calls or use concat
-                        writer.write(line + "\n");
+                        line.write(writer);
                     }
                 }
             } catch (Exception e) {

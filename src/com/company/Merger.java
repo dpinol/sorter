@@ -11,27 +11,25 @@ import java.util.PriorityQueue;
 public class Merger implements AutoCloseable {
     private final List<File> inputFiles;
     private final File output;
-    private final List<BufferedReader> readers;
+    private final List<BigLineReader> readers;
     private final BufferedWriter writer;
 
     /**
      * @param inputFiles should not be empty
-     * @param output
-     * @throws FileNotFoundException
      */
     public Merger(List<File> inputFiles, File output) throws IOException {
         this.inputFiles = inputFiles;
         this.output = output;
         readers = new ArrayList<>(inputFiles.size());
         for (File inputFile : inputFiles) {
-            readers.add(new BufferedReader(new FileReader(inputFile)));
+            readers.add(new BigLineReader(inputFile));
         }
         writer = new BufferedWriter(new FileWriter(output));
     }
 
     @Override
     public void close() throws Exception {
-        for (BufferedReader reader : readers) {
+        for (BigLineReader reader : readers) {
             reader.close();
         }
         writer.close();
@@ -39,10 +37,10 @@ public class Merger implements AutoCloseable {
 
 
     private static class LineWithOrigin implements Comparable<LineWithOrigin> {
-        String line;
+        BigLine line;
         int readerIndex;
 
-        LineWithOrigin(String line, int readerIndex) {
+        LineWithOrigin(BigLine line, int readerIndex) {
             this.line = line;
             this.readerIndex = readerIndex;
         }
@@ -54,26 +52,26 @@ public class Merger implements AutoCloseable {
     }
 
     void merge() throws IOException {
-        System.out.println("Merging " + readers.size() + " files");
+        global.log("Merging " + readers.size() + " files");
         //to avoid comparing the first of each file too many times, we use a heap
         PriorityQueue<LineWithOrigin> front = new PriorityQueue<>();
         //load heap
         int index = 0;
-        for (BufferedReader reader : readers) {
-            front.add(new LineWithOrigin(reader.readLine(), index++));
+        for (BigLineReader reader : readers) {
+            front.add(new LineWithOrigin(reader.getBigLine(), index++));
         }
 
         int numDrainedFiles = 0;
         while (!front.isEmpty()) {
             LineWithOrigin first = front.poll();
-            writer.write(first.line + "\n");
-            BufferedReader firstReader = readers.get(first.readerIndex);
-            String newLine = firstReader.readLine();
+            first.line.write(writer);
+            BigLineReader firstReader = readers.get(first.readerIndex);
+            BigLine newLine = firstReader.getBigLine();
             if (newLine != null) {
                 front.add(new LineWithOrigin(newLine, first.readerIndex));
             } else {
                 numDrainedFiles++;
-                System.out.println("Completed " + numDrainedFiles + "/" + readers.size());
+                global.log("Completed " + numDrainedFiles + "/" + readers.size());
             }
         }
 

@@ -55,12 +55,20 @@ public class BigFileSorter {
         reduce();
     }
 
+
     private void map() throws Exception {
-        try (BufferedReader reader = new BufferedReader(new FileReader(input), BigFileSorter.READ_BUF_SIZE)) {
-            String line;
-            while ((line = reader.readLine()) != null) {
+        long bytesRead = 0;
+        long lastBytesLog = 0;
+        try (BigLineReader bigLineReader = new BigLineReader(input)) {
+            BigLine bigLine;
+            while ((bigLine = bigLineReader.getBigLine()) != null) {
+                bytesRead += bigLine.getNumBytes();
+                if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
+                    global.log("Read " + bytesRead / 1_024 + "kB");
+                    lastBytesLog = bytesRead;
+                }
                 ChunkSorter chunkSorter = sorters.get(rnd.nextInt(NUM_SORTERS));
-                File newFile = chunkSorter.addLine(line);
+                File newFile = chunkSorter.addLine(bigLine);
                 if (newFile != null) {
                     tmpFiles.add(newFile);
                 }
@@ -75,7 +83,7 @@ public class BigFileSorter {
         }
         executorService.shutdown();
         while (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
-            System.out.println("Waiting for flushers");
+            global.log("Waiting for flushers");
         }
 
     }
