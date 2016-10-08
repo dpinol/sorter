@@ -1,15 +1,13 @@
-package com.company;
+package org.dpinol;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by dani on 20/09/16.
+ * Merges a list of sorted files into a single one
  */
 public class Merger implements AutoCloseable {
-    private final List<File> inputFiles;
-    private final File output;
     private final List<BigLineReader> readers;
     private final BufferedWriter writer;
 
@@ -17,8 +15,6 @@ public class Merger implements AutoCloseable {
      * @param inputFiles should not be empty
      */
     public Merger(List<File> inputFiles, File output) throws IOException {
-        this.inputFiles = inputFiles;
-        this.output = output;
         readers = new ArrayList<>(inputFiles.size());
         for (File inputFile : inputFiles) {
             if (inputFile.length() > 0) {
@@ -38,10 +34,10 @@ public class Merger implements AutoCloseable {
 
 
     private static class LineWithOrigin implements Comparable<LineWithOrigin> {
-        BigLine line;
+        FileLine line;
         int readerIndex;
 
-        LineWithOrigin(BigLine line, int readerIndex) {
+        LineWithOrigin(FileLine line, int readerIndex) {
             this.line = line;
             this.readerIndex = readerIndex;
         }
@@ -73,7 +69,7 @@ public class Merger implements AutoCloseable {
             writer.newLine();
             linesRead++;
             BigLineReader firstReader = readers.get(first.readerIndex);
-            BigLine newLine = firstReader.getBigLine();
+            FileLine newLine = firstReader.getBigLine();
             if (newLine != null) {
                 front.add(new LineWithOrigin(newLine, first.readerIndex));
                 linesPushed++;

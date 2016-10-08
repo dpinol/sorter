@@ -1,11 +1,10 @@
-package com.company;
+package org.dpinol;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -18,7 +17,7 @@ class ChunkSorter implements AutoCloseable {
     private final ArrayBlockingQueue<LineBucket> queue;
     private final String id;
     private final ExecutorService executorService;
-    private SimpleHeap<BigLine> heap = new SimpleHeap<>(BigFileSorter.LINES_PER_SORTER);
+    private SimpleHeap<FileLine> heap = new SimpleHeap<>(BigFileSorter.LINES_PER_SORTER);
     private final List<File> files = new ArrayList<>();
     private final Flusher flusher;
     private int waitCounter = 0;
@@ -76,8 +75,8 @@ class ChunkSorter implements AutoCloseable {
             while (heap.size() < BigFileSorter.LINES_PER_SORTER && !isDone()) {
                 LineBucket bucket = queue.poll(10, TimeUnit.MILLISECONDS);
                 if (bucket != null) {
-                    for (BigLine bigLine : bucket) {
-                        heap.add(bigLine);
+                    for (FileLine fileLine : bucket) {
+                        heap.add(fileLine);
                     }
                 } else {
                     waitCounter++;
@@ -89,7 +88,7 @@ class ChunkSorter implements AutoCloseable {
         void flush() throws Exception {
 //            Global.log("Flushing file " + tmpFile);
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
-                BigLine line;
+                FileLine line;
                 while ((line = heap.poll()) != null) {
                     line.write(writer);
                     writer.newLine();

@@ -1,4 +1,4 @@
-package com.company;
+package org.dpinol;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -6,26 +6,23 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
-import static com.company.Global.BUFFER_SIZE;
-import static com.company.Global.log;
+import static org.dpinol.Global.log;
 
 /**
- * Created by dani on 22/09/16.
+ * It gives access to a line parsed from a file. If shorter than {@link #LENGTH_THRESHOLD},
+ * the whole text is held in a {@link ShortLine}. Otherwise, a {@link LongLine} holds the
+ * position of the text within the file.
  */
-public abstract class BigLine implements Comparable<BigLine> {
+public abstract class FileLine implements Comparable<FileLine> {
 
-//    static BigLine create(String line) {
-//        return new LongLine(line);
-//    }
+    static final int LENGTH_THRESHOLD = org.dpinol.Global.BUFFER_SIZE;
 
     public abstract long getNumBytes();
 
 
     @Override
-    public int compareTo(BigLine o) {
+    public int compareTo(FileLine o) {
         try {
-            int startIndex = 0;
-            int endIndex = BUFFER_SIZE;
             int comp;
             Iterator<String> i1 = getIterator();
             Iterator<String> i2 = o.getIterator();
@@ -42,17 +39,18 @@ public abstract class BigLine implements Comparable<BigLine> {
                 comp = l1.compareTo(l2);
                 if (comp != 0) {
                     return comp;
-                } else if (l1.length() != BUFFER_SIZE) {
-                    return 0;
                 }
-                startIndex += BUFFER_SIZE;
-                endIndex += BUFFER_SIZE;
             } while (true);
         } catch (IOException e) {
             throw new RuntimeException("comparing " + this + " to " + o, e);
         }
     }
 
+    /**
+     *
+     * @return an iterator to access the line in chunks of maximum {@link #LENGTH_THRESHOLD}
+     * @throws IOException
+     */
     abstract public Iterator<String> getIterator() throws IOException;
 
 
@@ -64,8 +62,11 @@ public abstract class BigLine implements Comparable<BigLine> {
     }
 }
 
-class ShortLine extends BigLine {
-    String line;
+/**
+ * Whole line is held in memory
+ */
+class ShortLine extends FileLine {
+    private String line;
 
     public ShortLine(String line) {
         this.line = line;
@@ -77,7 +78,7 @@ class ShortLine extends BigLine {
     }
 
     @Override
-    public int compareTo(BigLine o) {
+    public int compareTo(FileLine o) {
         if (o instanceof ShortLine) {
             return line.compareTo(((ShortLine) o).line);
         }
@@ -104,26 +105,34 @@ class ShortLine extends BigLine {
     }
 } //ShortLine
 
-
-class LongLine extends BigLine {
+/**
+ * Holds the information to quickly read a text line from a file
+ */
+class LongLine extends FileLine {
     /* we cache first buffer so that most of times we don't need to hit the disk for comparing with other lines*/
     private final String head;
-    private final ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
+    private final ByteBuffer buffer = ByteBuffer.allocate(LENGTH_THRESHOLD);
+    /**
+     * Offset of the line within the file
+     */
     private final long startFileOffset;
+    /**
+     * Length in bytes of the line
+     */
     private final long numBytes;
     private final FileChannel fileChannel;
 
 
     /**
-     * @param fileChannel     LongLine will not query nor change its current position
+     * @param fileChannel LongLine will not query nor change its current position. It cannot be closed until the LongLine
+     *                    finishes reading the file
      */
     public LongLine(FileChannel fileChannel, String lineHead, long startFileOffset, long numBytes) throws IOException {
-        log("LONG LINE************");
         this.fileChannel = fileChannel;
         head = lineHead;
         this.startFileOffset = startFileOffset;
         this.numBytes = numBytes;
-        this.buffer.limit(BUFFER_SIZE);
+        this.buffer.limit(LENGTH_THRESHOLD);
     }
 
     @Override
@@ -149,14 +158,11 @@ class LongLine extends BigLine {
                     ret = head;
                 } else {
                     try {
-//                        if (getRelativeCurrentOffset() + BUFFER_SIZE > numBytes) {
-//                            buffer.limit((int) (numBytes - getRelativeCurrentOffset()));
-//                        }
                         buffer.clear();
                         int read = fileChannel.read(buffer, currentOffset);
                         int chunkSize = Math.min(read, (int) (numBytes - getRelativeCurrentOffset()));
                         ret = new String(buffer.array(), 0, chunkSize);
-                        currentOffset += BUFFER_SIZE;
+                        currentOffset += LENGTH_THRESHOLD;
                     } catch (IOException e) {
                         throw new RuntimeException("reading file", e);
                     }

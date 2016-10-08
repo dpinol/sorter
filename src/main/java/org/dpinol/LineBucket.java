@@ -1,11 +1,11 @@
-package com.company;
+package org.dpinol;
 
 import java.util.ArrayList;
 
 /**
- * Created by dani on 06/10/2016.
+ *
  */
-class LineBucket extends ArrayList<BigLine> {
+class LineBucket extends ArrayList<FileLine> {
     LineBucket() {
         super(BigFileSorter.QUEUE_BUCKET_SIZE);
     }

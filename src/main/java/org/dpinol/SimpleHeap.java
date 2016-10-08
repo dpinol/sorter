@@ -1,22 +1,23 @@
-package com.company;
-
-import java.lang.reflect.Array;
+package org.dpinol;
 
 /**
- * Using a
- * Created by dani on 04/10/2016.
+ * Heap to sort a collection of objects
  */
 public class SimpleHeap<E extends Comparable<E>> {
     private int size = 0;
     private Object[] data;
     private final int capacity;
 
+    /**
+     *
+     * @param capacity maximum number of objects to sort
+     */
     public SimpleHeap(int capacity) {
         data = new Object[capacity];
         this.capacity = capacity;
     }
 
-
+    @SuppressWarnings("unchecked")
     private E get(int pos) {
         return (E) data[pos];
     }

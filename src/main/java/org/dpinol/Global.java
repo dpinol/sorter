@@ -1,4 +1,4 @@
-package com.company;
+package org.dpinol;
 
 import java.util.Date;
 

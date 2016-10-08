@@ -1,4 +1,4 @@
-package com.company;
+package org.dpinol;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -8,11 +8,8 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static com.company.Global.BUFFER_SIZE;
-import static com.company.Global.LINE_SEPARATOR_BYTES;
-
 /**
- * Created by dani on 23/09/16.
+ * Reads an input file, creating an instance if {@link FileLine} for parsed line
  */
 public class BigLineReader implements AutoCloseable {
     private final Path input;
@@ -21,6 +18,7 @@ public class BigLineReader implements AutoCloseable {
     private long lineStartFileOffset = 0;
     private int currentBufferOffset = 0;
     private int bufferSize = 0;
+    final ByteArrayOutputStream lineHead = new ByteArrayOutputStream(Global.BUFFER_SIZE);
 
 
     public BigLineReader(File input) throws IOException {
@@ -30,19 +28,16 @@ public class BigLineReader implements AutoCloseable {
     public BigLineReader(Path input) throws IOException {
         fileChannel = FileChannel.open(input);
         this.input = input;
-        buffer = ByteBuffer.allocate(BUFFER_SIZE);
-        //set to end so that we're forced to read from file initially
-//        currentBufferOffset = BUFFER_SIZE;
+        buffer = ByteBuffer.allocate(Global.BUFFER_SIZE);
     }
 
 
-    //reading 800Mb of short lines takes 8s instead of 3s if using 10 * 1024
-    final ByteArrayOutputStream lineHead = new ByteArrayOutputStream(BUFFER_SIZE);
 
     /**
-     * @return null when EOF found
+     * Parses the next line from the file and ...
+     * @return an object encapsulating the line, or null when EOF
      */
-    BigLine getBigLine() throws IOException {
+    public FileLine getBigLine() throws IOException {
         long lineLength = 0;
         int nlPos;
         lineHead.reset();
@@ -63,9 +58,9 @@ public class BigLineReader implements AutoCloseable {
             else
                 newChunkLen = nlPos - currentBufferOffset;
             lineLength += newChunkLen;
-            if (lineHead.size() < BUFFER_SIZE) {
-                int bytesToCopy = Math.min(BUFFER_SIZE, newChunkLen);
-                bytesToCopy = Math.min(bytesToCopy, BUFFER_SIZE - lineHead.size());
+            if (lineHead.size() < Global.BUFFER_SIZE) {
+                int bytesToCopy = Math.min(Global.BUFFER_SIZE, newChunkLen);
+                bytesToCopy = Math.min(bytesToCopy, Global.BUFFER_SIZE - lineHead.size());
                 lineHead.write(buffer.array(), currentBufferOffset, bytesToCopy);
             }
             currentBufferOffset += newChunkLen + 1;
@@ -75,7 +70,7 @@ public class BigLineReader implements AutoCloseable {
         }
         long curStartOffset = lineStartFileOffset;
         lineStartFileOffset += lineLength + 1;
-        if (lineLength <= BUFFER_SIZE)
+        if (lineLength <= Global.BUFFER_SIZE)
             return new ShortLine(lineHead.toString());
         else
             return new LongLine(fileChannel, lineHead.toString(), curStartOffset, lineLength);
@@ -90,7 +85,7 @@ public class BigLineReader implements AutoCloseable {
         byte[] array = aBuffer.array();
         //TODO is there an efficient char search?
         for (int i = startIndex; i < bufSize; i++) {
-            if (arrayContains(array, i, LINE_SEPARATOR_BYTES))
+            if (arrayContains(array, i, Global.LINE_SEPARATOR_BYTES))
                 return i;
         }
         return -1;

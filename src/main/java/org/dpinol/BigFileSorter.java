@@ -1,4 +1,4 @@
-package com.company;
+package org.dpinol;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -13,6 +13,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Sorts a text file, line by line.
+ * This class splits the line, and distributes them to {@link ChunkSorter}'s,
+ * each of which will create several sorted files, which {@link Merger} will merge
+ * on a single file
+ */
 public class BigFileSorter {
 
     //TODO with threaded sort, 100_000 is much slower than 10_000
@@ -69,17 +75,17 @@ public class BigFileSorter {
         long bytesRead = 0;
         long lastBytesLog = 0;
         try (BigLineReader bigLineReader = new BigLineReader(input)) {
-            BigLine bigLine;
+            FileLine fileLine;
             LineBucket bucket = new LineBucket();
-            while ((bigLine = bigLineReader.getBigLine()) != null) {
-                bytesRead += bigLine.getNumBytes();
+            while ((fileLine = bigLineReader.getBigLine()) != null) {
+                bytesRead += fileLine.getNumBytes();
                 if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
                     Global.log("Read " + bytesRead / 1_024 + "kB");
                     lastBytesLog = bytesRead;
                 }
 //                ChunkSorter chunkSorter = sorters.get(rnd.nextInt(NUM_SORTERS));
-//                chunkSorter.addLine(bigLine);
-                bucket.add(bigLine);
+//                chunkSorter.addLine(fileLine);
+                bucket.add(fileLine);
                 if (bucket.isFull()) {
                     queue.put(bucket);
                     bucket = new LineBucket();
