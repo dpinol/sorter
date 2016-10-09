@@ -3,7 +3,7 @@ package org.dpinol;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousFileChannel;
+import java.nio.channels.FileChannel;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -145,15 +145,15 @@ class LongLine extends FileLine {
      * Length in bytes of the line
      */
     private final long numBytes;
-    private final AsynchronousFileChannel asynchronousFileChannel;
+    private final FileChannel fileChannel;
 
 
     /**
-     * @param asynchronousFileChannel LongLine will not query nor change its current position. It cannot be closed until the LongLine
+     * @param FileChannel LongLine will not query nor change its current position. It cannot be closed until the LongLine
      *                                finishes reading the file
      */
-    public LongLine(AsynchronousFileChannel asynchronousFileChannel, String lineHead, long startFileOffset, long numBytes) throws IOException {
-        this.asynchronousFileChannel = asynchronousFileChannel;
+    public LongLine(FileChannel FileChannel, String lineHead, long startFileOffset, long numBytes) throws IOException {
+        this.fileChannel = FileChannel;
         head = lineHead;
         this.startFileOffset = startFileOffset;
         this.numBytes = numBytes;
@@ -198,7 +198,7 @@ class LongLine extends FileLine {
             }
 
             int read() throws Exception {
-                return asynchronousFileChannel.read(buffer, currentOffset).get();
+                return fileChannel.read(buffer, currentOffset);
             }
         };
 

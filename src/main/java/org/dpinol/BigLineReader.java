@@ -37,7 +37,7 @@
 //     * Parses the next line from the file and ...
 //     * @return an object encapsulating the line, or null when EOF
 //     */
-//    public FileLine getBigLine() throws IOException {
+//    public FileLine readFileLine() throws IOException {
 //        long lineLength = 0;
 //        int nlPos;
 //        lineHead.reset();

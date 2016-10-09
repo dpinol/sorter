@@ -38,7 +38,7 @@ public class BigFileSorterTest {
 
     @Test
     public void shortShuffle() throws Exception {
-        int NUM_LINES = 5;
+        int NUM_LINES = 500;
         int MIN_LEN = 3;
         Utils.writeRandomLines(inputFile, NUM_LINES, MIN_LEN);
         BigFileSorter bigFileSorter = new BigFileSorter(inputFile, outputFile, null);

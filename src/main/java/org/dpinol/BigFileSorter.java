@@ -78,10 +78,10 @@ public class BigFileSorter {
 
         long bytesRead = 0;
         long lastBytesLog = 0;
-        try (AsyncFileLineReader fileLineReader = new AsyncFileLineReader(input)) {
+        try (FileLineReader fileLineReader = new FileLineReader(input)) {
             FileLine fileLine;
             LineBucket bucket = new LineBucket();
-            while ((fileLine = fileLineReader.read().get()) != null) {
+            while ((fileLine = fileLineReader.readFileLine()) != null) {
                 bytesRead += fileLine.getNumBytes();
                 if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
                     Log.info("Read " + bytesRead / 1_024 + "kB");
