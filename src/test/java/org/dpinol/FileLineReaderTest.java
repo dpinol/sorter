@@ -38,6 +38,16 @@ public class FileLineReaderTest {
     }
 
     @Test
+    public void shortRndLines() throws Exception {
+        String lines[] = new String[1000];
+        for (int i = 0; i < lines.length; i++) {
+            lines[i] = createLine(rnd.nextInt(200) + 1);
+        }
+        writeAndRead(lines);
+    }
+
+
+    @Test
     public void longLines() throws Exception {
         String lines[] = {createLine(BUFFER_SIZE),
                 createLine(BUFFER_SIZE + 1),
@@ -51,7 +61,7 @@ public class FileLineReaderTest {
     public void longRndLines() throws Exception {
         String lines[] = new String[50];
         for (int i = 0; i < lines.length; i++) {
-            lines[i] = createLine(rnd.nextInt(BUFFER_SIZE * 3));
+            lines[i] = createLine(rnd.nextInt(BUFFER_SIZE * 3) + 1);
         }
         writeAndRead(lines);
     }

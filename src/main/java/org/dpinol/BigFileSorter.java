@@ -20,15 +20,20 @@ import java.util.concurrent.TimeUnit;
  * This class splits the line, and distributes them to {@link ChunkSorter}'s,
  * each of which will create several sorted files, which {@link Merger} will merge
  * on a single file
+ *  File 5G (5M lines)
+ *  Mon Oct 10 01:56:58 CEST 2016: *** RUNNING WITH 5 threads, buffer size 10240, 10000 lines per sorter, 5 buckets of size 10000
+ * 26s map
+ * 4'20s reduce
+ * total 4m47.552s
  */
 public class BigFileSorter {
 
     //TODO with threaded sort, 100_000 is much slower than 10_000
-    static final int LINES_PER_SORTER = 1_000;
-    private static final int NUM_SORTERS = 8; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
+    static final int LINES_PER_SORTER = 10_000;
+    private static final int NUM_SORTERS = 5; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
     private static final int NUM_THREADS = NUM_SORTERS;
     static final int QUEUE_BUCKET_SIZE = 1_000;
-    static final int QUEUE_NUM_BUCKETS = NUM_THREADS ;
+    static final int QUEUE_NUM_BUCKETS = NUM_THREADS;
 
     private static final Random rnd = new Random();
 
@@ -102,18 +107,19 @@ public class BigFileSorter {
     }
 
     private void closeSorters(ExecutorService executorService) throws IOException, InterruptedException {
+        closeExecutor(executorService);
         for (ChunkSorter sorter : sorters) {
             sorter.close();
             tmpFiles.addAll(sorter.getFiles());
         }
+    }
+
+    void closeExecutor(ExecutorService executorService) throws InterruptedException {
         executorService.shutdown();
         while (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
             Log.info("Waiting for flushers");
         }
 
-        for (ChunkSorter sorter : sorters) {
-            tmpFiles.addAll(sorter.getFiles());
-        }
     }
 
     private void reduce() throws Exception {
@@ -121,6 +127,7 @@ public class BigFileSorter {
         try (Merger merger = new Merger(tmpFiles, output, executorService)) {
             merger.merge();
         }
+        closeExecutor(executorService);
     }
 
     public static void main(String[] args) throws Exception {
