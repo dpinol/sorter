@@ -19,7 +19,7 @@ public class Merger implements AutoCloseable {
     private final BufferedWriter writer;
     //to avoid comparing the first of each file too many times, we use a heap
     private final SimpleHeap<LineWithOrigin> front;
-    private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 10_000_000);
+    private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
     private final LongAdder linesRead = new LongAdder();
     private final LongAdder linesPushed = new LongAdder();
     private final LongAdder numDrainedFiles = new LongAdder();
@@ -68,6 +68,7 @@ public class Merger implements AutoCloseable {
         //load heap
         int readerIndex = 0;
         CompletableFuture<Void>[] cfs = new CompletableFuture[readers.size()];
+        Log.info("%d readers", readers.size());
         for (FileLineReader reader : readers) {
             cfs[readerIndex] = pushFromReaderAsync(readerIndex);
             readerIndex++;
@@ -123,6 +124,7 @@ public class Merger implements AutoCloseable {
         }, executorService);
         return cf;
     }
+
 
     void pushFromReader(final int index) throws IOException {
         final FileLineReader firstReader = readers.get(index);

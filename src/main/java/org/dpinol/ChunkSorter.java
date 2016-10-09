@@ -41,7 +41,6 @@ class ChunkSorter implements AutoCloseable {
 
     @Override
     public void close() throws IOException, InterruptedException {
-        Log.info("Closing "  + sorterThread + " after " + waitCounter + " waits");
     }
 
     private class SorterThread extends Thread {
@@ -62,7 +61,7 @@ class ChunkSorter implements AutoCloseable {
                     e.printStackTrace();
                 }
             }
-            Log.info("done "  + sorterThread);
+            Log.info("Finished "  + sorterThread + " after " + waitCounter + " waits");
         }
 
         boolean isDone() {
