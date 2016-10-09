@@ -1,5 +1,7 @@
 package org.dpinol;
 
+import org.dpinol.util.Log;
+
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +43,7 @@ class ChunkSorter implements AutoCloseable {
     public void close() throws IOException, InterruptedException {
         //flusher.shutDown = true;
 //        flusher.join();
-        Global.log("joined "  + flusher + " after " + waitCounter + " waits");
+        Log.info("joined "  + flusher + " after " + waitCounter + " waits");
     }
 
     private class Flusher extends Thread {
@@ -63,7 +65,7 @@ class ChunkSorter implements AutoCloseable {
                     e.printStackTrace();
                 }
             }
-            Global.log("done "  + flusher);
+            Log.info("done "  + flusher);
         }
 
         boolean isDone() {
@@ -85,11 +87,11 @@ class ChunkSorter implements AutoCloseable {
 
 
         void flush() throws Exception {
-//            Global.log("Flushing file " + tmpFile);
+//            Log.info("Flushing file " + tmpFile);
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
                 FileLine line;
                 while ((line = heap.poll()) != null) {
-                    line.write(writer, LINE_SEPARATOR);
+                    line.write(writer, executorService);
                     writer.newLine();
                 }
             }

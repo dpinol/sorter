@@ -3,7 +3,7 @@ package org.dpinol;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
+import java.nio.channels.AsynchronousFileChannel;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -47,17 +47,14 @@ public abstract class FileLine implements Comparable<FileLine> {
     }
 
     /**
+     * TODO return Iterator<Future<String>> so that 2 LongLine's being compared can be read in parallel
      *
      * @return an iterator to access the line in chunks of maximum {@link #LENGTH_THRESHOLD}
-     * @throws IOException
      */
     abstract public Iterator<String> getIterator() throws IOException;
 
 
-    /**
-     * TODO use FileAsyncChannel?
-     */
-    public CompletableFuture<Void> write(Writer writer, ExecutorService es) {
+    public CompletableFuture<Void> write(Writer writer, ExecutorService executorService) {
         CompletableFuture<Void> cf = new CompletableFuture<>();
         CompletableFuture.runAsync(
                 () -> {
@@ -67,10 +64,11 @@ public abstract class FileLine implements Comparable<FileLine> {
                             writer.write(iterator.next());
                         }
                         writer.write(Global.LINE_SEPARATOR);
+                        cf.complete(null);
                     } catch (IOException e) {
                         cf.completeExceptionally(e);
                     }
-                }, es);
+                }, executorService);
         return cf;
     }
 
@@ -135,15 +133,15 @@ class LongLine extends FileLine {
      * Length in bytes of the line
      */
     private final long numBytes;
-    private final FileChannel fileChannel;
+    private final AsynchronousFileChannel asynchronousFileChannel;
 
 
     /**
-     * @param fileChannel LongLine will not query nor change its current position. It cannot be closed until the LongLine
-     *                    finishes reading the file
+     * @param asynchronousFileChannel LongLine will not query nor change its current position. It cannot be closed until the LongLine
+     *                                finishes reading the file
      */
-    public LongLine(FileChannel fileChannel, String lineHead, long startFileOffset, long numBytes) throws IOException {
-        this.fileChannel = fileChannel;
+    public LongLine(AsynchronousFileChannel asynchronousFileChannel, String lineHead, long startFileOffset, long numBytes) throws IOException {
+        this.asynchronousFileChannel = asynchronousFileChannel;
         head = lineHead;
         this.startFileOffset = startFileOffset;
         this.numBytes = numBytes;
@@ -174,11 +172,11 @@ class LongLine extends FileLine {
                 } else {
                     try {
                         buffer.clear();
-                        int read = fileChannel.read(buffer, currentOffset);
-                        int chunkSize = Math.min(read, (int) (numBytes - getRelativeCurrentOffset()));
+                        int readBytes = read();
+                        int chunkSize = Math.min(readBytes, (int) (numBytes - getRelativeCurrentOffset()));
                         ret = new String(buffer.array(), 0, chunkSize);
                         currentOffset += LENGTH_THRESHOLD;
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         throw new RuntimeException("reading file", e);
                     }
                 }
@@ -186,7 +184,13 @@ class LongLine extends FileLine {
                     hasNext = false;
                 return ret;
             }
+
+            int read() throws Exception {
+                return asynchronousFileChannel.read(buffer, currentOffset).get();
+            }
         };
+
+
     }
 
 

@@ -1,5 +1,6 @@
-package com.company;
+package org.dpinol;
 
+import org.dpinol.util.Log;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -11,20 +12,20 @@ import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.Random;
 
-import static com.company.Global.*;
-import static com.company.Utils.createLine;
+import static org.dpinol.Global.*;
+import static org.dpinol.Utils.createLine;
 import static org.junit.Assert.*;
 
 /**
  * Created by dani on 26/09/16.
  */
-public class BigLineReaderTest {
+public class AsyncFileLineReaderTest {
     private File tempFile;
     private final Random rnd = new Random();
 
     @Before
     public void setUp() throws Exception {
-        tempFile = File.createTempFile("BigLineReaderTest", "test");
+        tempFile = File.createTempFile("AsyncFileLineReaderTest", "test");
         tempFile.deleteOnExit();
     }
 
@@ -90,10 +91,10 @@ public class BigLineReaderTest {
                 while ((nl = findNewLine(buffer, nl + 1, buffer.limit())) >= 0)
                     numLines++;
                 if (total % 100_000 == 0)
-                    Global.log("buffers read: " + total + ", lines:" + numLines);
+                    Log.info("buffers read: " + total + ", lines:" + numLines);
                 buffer.clear();
             }
-            Global.log("Num lines:" + numLines);
+            Log.info("Num lines:" + numLines);
         }
     }
 
@@ -101,34 +102,34 @@ public class BigLineReaderTest {
     @Ignore
     @Test
     public void performanceBL() throws Exception {
-        try (BigLineReader reader = new BigLineReader(new File("/Users/dani/appDev/shibs/input.txt"));
+        try (AsyncFileLineReader reader = new AsyncFileLineReader(new File("/Users/dani/appDev/shibs/input.txt"));
              Timer timer = new Timer()) {
             int i = 0;
-            BigLine bl;
-            while ((bl = reader.getBigLine()) != null) {
+            FileLine bl;
+            while ((bl = reader.read().get()) != null) {
                 Iterator<String> it = bl.getIterator();
                 while (it.hasNext()) {
                     it.next();
                 }
                 if (++i % 100_000 == 0)
-                    Global.log("lines read: " + i);
+                    Log.info("lines read: " + i);
             }
         }
     }
 
     @Test
     public void longLines10BL() throws Exception {
-        try (BigLineReader reader = new BigLineReader(new File("/Users/dani/appDev/shibs/10_long_lines.txt"));
+        try (AsyncFileLineReader reader = new AsyncFileLineReader(new File("/Users/dani/appDev/shibs/10_long_lines.txt"));
              Timer timer = new Timer()) {
             int i = 0;
-            BigLine bl;
-            while ((bl = reader.getBigLine()) != null) {
+            FileLine bl;
+            while ((bl = reader.read().get()) != null) {
                 Iterator<String> iterator = bl.getIterator();
                 while (iterator.hasNext()) {
                     String next = iterator.next();
-//                    Global.log(next);
+//                    Log.info(next);
                 }
-                Global.log("lines read: " + (i++));
+                Log.info("lines read: " + (i++));
             }
         }
 
@@ -142,7 +143,7 @@ public class BigLineReaderTest {
             int i = 0;
             while (reader.readLine() != null) {
                 if (++i % 100_000 == 0)
-                    Global.log("lines read: " + i);
+                    Log.info("lines read: " + i);
             }
         }
     }
@@ -150,25 +151,25 @@ public class BigLineReaderTest {
 
     /**
      * Writes the lines to a single file
-     * reads file with BigLineReader, verifying it reads the written lines
+     * reads file with FileLineReader, verifying it reads the written lines
      */
-    private void writeAndRead(String... lines2write) throws IOException {
+    private void writeAndRead(String... lines2write) throws Exception {
         writeLines(lines2write);
-        try (BigLineReader reader = new BigLineReader(tempFile)) {
+        try (AsyncFileLineReader reader = new AsyncFileLineReader(tempFile)) {
             for (String line : lines2write) {
-                Global.log("testing line of length " + line.length());
+                Log.info("testing line of length " + line.length());
                 String readLine = readLine(reader);
                 assertFalse(readLine.contains(Global.LINE_SEPARATOR));
                 assertEquals("expected length", line.length(), readLine.length());
                 assertEquals(line, readLine);
             }
-            assertNull(reader.getBigLine());
+            assertNull(reader.read().get());
         }
     }
 
-    private String readLine(BigLineReader reader) throws IOException {
-        BigLine bigLine = reader.getBigLine();
-        Iterator<String> iterator = bigLine.getIterator();
+    private String readLine(AsyncFileLineReader reader) throws Exception {
+        FileLine fileLine = reader.read().get();
+        Iterator<String> iterator = fileLine.getIterator();
         StringBuilder builder = new StringBuilder();
         while (iterator.hasNext()) {
             builder.append(iterator.next());

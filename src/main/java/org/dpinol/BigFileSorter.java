@@ -1,5 +1,7 @@
 package org.dpinol;
 
+import org.dpinol.util.Log;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,7 +48,8 @@ public class BigFileSorter {
     BigFileSorter(File input, File output, File tmpFolder) throws IOException {
         if (QUEUE_BUCKET_SIZE > LINES_PER_SORTER)
             throw new AssertionError("QUEUE_BUCKET_SIZE > LINES_PER_SORTER");
-        Global.log("*** RUNNING WITH " + NUM_THREADS + " threads, "
+        Log.info("*** RUNNING WITH " + NUM_THREADS + " threads, "
+                + "buffer size " + Global.BUFFER_SIZE + ", "
                 + LINES_PER_SORTER + " lines per sorter, "
                 + QUEUE_NUM_BUCKETS + " buckets of size " + QUEUE_BUCKET_SIZE);
         this.input = input;
@@ -74,17 +77,15 @@ public class BigFileSorter {
     private void map() throws Exception {
         long bytesRead = 0;
         long lastBytesLog = 0;
-        try (FileLineReader fileLineReader = new FileLineReader(input)) {
+        try (AsyncFileLineReader fileLineReader = new AsyncFileLineReader(input)) {
             FileLine fileLine;
             LineBucket bucket = new LineBucket();
-            while ((fileLine = fileLineReader.getBigLine()) != null) {
+            while ((fileLine = fileLineReader.read().get()) != null) {
                 bytesRead += fileLine.getNumBytes();
                 if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
-                    Global.log("Read " + bytesRead / 1_024 + "kB");
+                    Log.info("Read " + bytesRead / 1_024 + "kB");
                     lastBytesLog = bytesRead;
                 }
-//                ChunkSorter chunkSorter = sorters.get(rnd.nextInt(NUM_SORTERS));
-//                chunkSorter.addLine(fileLine);
                 bucket.add(fileLine);
                 if (bucket.isFull()) {
                     queue.put(bucket);
@@ -106,7 +107,7 @@ public class BigFileSorter {
 //        }
         executorService.shutdown();
         while (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
-            Global.log("Waiting for flushers");
+            Log.info("Waiting for flushers");
         }
 
         for (ChunkSorter sorter : sorters) {
@@ -116,7 +117,7 @@ public class BigFileSorter {
     }
 
     private void reduce() throws Exception {
-        try (Merger merger = new Merger(tmpFiles, output)) {
+        try (Merger merger = new Merger(tmpFiles, output, executorService)) {
             merger.merge();
         }
     }

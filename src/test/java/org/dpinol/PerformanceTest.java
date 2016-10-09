@@ -1,5 +1,6 @@
 package org.dpinol;
 
+import org.dpinol.util.Log;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -43,7 +44,7 @@ public class PerformanceTest {
             for (int i = 0; i < NUM_LINES; i++) {
                 bucket.add(new ShortLine("line" + rnd.nextInt()));
                 if (i % 1_000_000 == 0) {
-                    Global.log("Bucket pushed " + i);
+                    Log.info("Bucket pushed " + i);
                 }
                 if (bucket.isFull()) {
                     queue.put(bucket);
@@ -77,7 +78,7 @@ public class PerformanceTest {
                         consumeLine(heap, fileLine);
                     }
                 }
-                Global.log("lines read " + hc + ". Waits " + waits);
+                Log.info("lines read " + hc + ". Waits " + waits);
             } catch (Exception e) {
                 e.printStackTrace();
             }

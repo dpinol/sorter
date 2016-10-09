@@ -1,24 +1,14 @@
 package org.dpinol;
 
+import org.dpinol.util.Log;
+import org.dpinol.util.ProgressLogger;
+
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousChannelGroup;
-import java.nio.channels.AsynchronousFileChannel;
-import java.nio.channels.CompletionHandler;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
-
-import static org.dpinol.Global.BUFFER_SIZE;
-import static org.dpinol.Global.LINE_SEPARATOR;
 
 /**
  * Merges a list of sorted files into a single one
@@ -74,7 +64,7 @@ public class Merger implements AutoCloseable {
     }
 
     void merge() throws IOException {
-        Global.log("Merging " + readers.size() + " files");
+        Log.info("Merging " + readers.size() + " files");
         //load heap
         int readerIndex = 0;
         CompletableFuture<FileLine>[] cfs = new CompletableFuture[readers.size()];
@@ -94,8 +84,8 @@ public class Merger implements AutoCloseable {
                 first.line.write(writer, executorService));
             frontUpdatedCF = pushFromReader(first.readerIndex);
         }
-        Global.log(linesPushed + " lines pushed");
-        Global.log(linesRead + " lines read");
+        Log.info(linesPushed + " lines pushed");
+        Log.info(linesRead + " lines read");
     }
 
     /**

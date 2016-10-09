@@ -3,7 +3,7 @@ package org.dpinol;
 import java.io.Closeable;
 import java.io.IOException;
 
-import static org.dpinol.Global.log;
+import org.dpinol.util.Log;
 
 /**
  * Created by dani on 29/09/16.
@@ -13,6 +13,6 @@ public class Timer implements Closeable {
 
     @Override
     public void close() throws IOException {
-        log("Spent " + (System.currentTimeMillis() - start) + "ms");
+        Log.info("Spent " + (System.currentTimeMillis() - start) + "ms");
     }
 }
