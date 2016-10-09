@@ -1,4 +1,4 @@
-package org.dpinol;
+package org.dpinol.helpers;
 
 import java.io.Closeable;
 import java.io.IOException;

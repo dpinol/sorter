@@ -15,6 +15,11 @@ public class Log {
 
     static Level level = Level.INFO;
 
+
+    public static void error(String str, Object... args) {
+        log(Level.ERROR, str, args);
+    }
+
     public static void info(String str, Object... args) {
         log(Level.INFO, str, args);
     }

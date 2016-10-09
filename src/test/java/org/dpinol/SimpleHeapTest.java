@@ -1,5 +1,6 @@
 package org.dpinol;
 
+import org.dpinol.helpers.Utils;
 import org.junit.Test;
 
 import java.util.stream.IntStream;

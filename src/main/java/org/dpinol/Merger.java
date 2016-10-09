@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Merges a list of sorted files into a single one
@@ -71,19 +72,31 @@ public class Merger implements AutoCloseable {
         for (AsyncFileLineReader reader : readers) {
             final int index = readerIndex++;
             CompletableFuture<FileLine> cf = reader.read();
-            cf.thenAccept(line -> front.add(new LineWithOrigin(line, index)));
+            cf.thenAccept(line ->   {
+                LineWithOrigin lineWithOrigin = new LineWithOrigin(line, index);
+                synchronized (this) {
+                    front.add(lineWithOrigin);
+                }
+            });
+            cfs[index] = cf;
             linesPushed.add(1);
         }
         CompletableFuture<Void> frontUpdatedCF = CompletableFuture.allOf(cfs);
-        CompletableFuture<Void> lineWrittenCF =  new CompletableFuture<>();
-        lineWrittenCF.complete(null);
+        CompletableFuture<Void> lineWrittenCF =  CompletableFuture.runAsync(()->{}, executorService);
         while (!front.isEmpty()) {
             frontUpdatedCF.join();
             LineWithOrigin first = front.poll();
-            lineWrittenCF = lineWrittenCF.thenCompose( (Void v) ->
-                first.line.write(writer, executorService));
+            lineWrittenCF = lineWrittenCF.thenRun( () ->
+                    {try {
+                        first.line.write(writer);
+                    } catch (IOException e) {
+                        //TODO manager
+                        Log.error(e.toString());
+                    }
+                    });
             frontUpdatedCF = pushFromReader(first.readerIndex);
         }
+        lineWrittenCF.join();
         Log.info(linesPushed + " lines pushed");
         Log.info(linesRead + " lines read");
     }

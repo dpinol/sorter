@@ -1,5 +1,6 @@
 package org.dpinol;
 
+import org.dpinol.helpers.Utils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -37,9 +38,12 @@ public class BigFileSorterTest {
 
     @Test
     public void shortShuffle() throws Exception {
-        Utils.writeRandomLines(inputFile, 5, 3);
+        int NUM_LINES = 5;
+        int MIN_LEN = 3;
+        Utils.writeRandomLines(inputFile, NUM_LINES, MIN_LEN);
         BigFileSorter bigFileSorter = new BigFileSorter(inputFile, outputFile, null);
         bigFileSorter.sort();
+        checkLines(outputFile, NUM_LINES, MIN_LEN);
     }
 
     @Test

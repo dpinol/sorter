@@ -1,5 +1,6 @@
 package org.dpinol;
 
+import org.dpinol.helpers.Timer;
 import org.dpinol.util.Log;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -13,7 +14,7 @@ import java.util.Iterator;
 import java.util.Random;
 
 import static org.dpinol.Global.*;
-import static org.dpinol.Utils.createLine;
+import static org.dpinol.helpers.Utils.createLine;
 import static org.junit.Assert.*;
 
 /**

@@ -20,7 +20,7 @@ class ChunkSorter implements AutoCloseable {
     private final ExecutorService executorService;
     private SimpleHeap<FileLine> heap = new SimpleHeap<>(BigFileSorter.LINES_PER_SORTER);
     private final List<File> files = new ArrayList<>();
-    private final Flusher flusher;
+    private final SorterThread sorterThread;
     private int waitCounter = 0;
 
     ChunkSorter(File tmpFolder, String id, ExecutorService executorService,
@@ -30,8 +30,8 @@ class ChunkSorter implements AutoCloseable {
         tmpFolder.deleteOnExit();
         this.id = id;
         this.executorService = executorService;
-        flusher = new Flusher();
-        executorService.submit(flusher);
+        sorterThread = new SorterThread();
+        executorService.submit(sorterThread);
     }
 
     public List<File> getFiles() {
@@ -41,14 +41,11 @@ class ChunkSorter implements AutoCloseable {
 
     @Override
     public void close() throws IOException, InterruptedException {
-        //flusher.shutDown = true;
-//        flusher.join();
-        Log.info("joined "  + flusher + " after " + waitCounter + " waits");
+        Log.info("Closing "  + sorterThread + " after " + waitCounter + " waits");
     }
 
-    private class Flusher extends Thread {
+    private class SorterThread extends Thread {
         private File tmpFile;
-        //volatile boolean shutDown = false;
 
         @Override
         public void run() {
@@ -65,7 +62,7 @@ class ChunkSorter implements AutoCloseable {
                     e.printStackTrace();
                 }
             }
-            Log.info("done "  + flusher);
+            Log.info("done "  + sorterThread);
         }
 
         boolean isDone() {
@@ -91,8 +88,7 @@ class ChunkSorter implements AutoCloseable {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
                 FileLine line;
                 while ((line = heap.poll()) != null) {
-                    line.write(writer, executorService);
-                    writer.newLine();
+                    line.write(writer);
                 }
             }
 

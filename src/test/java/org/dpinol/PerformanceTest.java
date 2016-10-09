@@ -1,5 +1,6 @@
 package org.dpinol;
 
+import org.dpinol.helpers.Timer;
 import org.dpinol.util.Log;
 import org.junit.Test;
 
