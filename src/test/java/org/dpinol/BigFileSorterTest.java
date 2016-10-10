@@ -1,6 +1,7 @@
 package org.dpinol;
 
 import org.dpinol.helpers.Utils;
+import org.dpinol.util.Log;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -10,11 +11,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Random;
 
 /**
  * Created by dani on 28/09/16.
  */
 public class BigFileSorterTest {
+    private final static Log logger = new Log(BigFileSorterTest.class);
 
     private File inputFile, outputFile;
 
@@ -37,17 +40,20 @@ public class BigFileSorterTest {
 
 
     @Test
-    public void shortShuffle() throws Exception {
-        int NUM_LINES = 15_00;
-        int MIN_LEN = 3;
-        Utils.writeRandomLines(inputFile, NUM_LINES, MIN_LEN);
-        BigFileSorter bigFileSorter = new BigFileSorter(inputFile, outputFile, null);
-        bigFileSorter.sort();
-        checkLines(outputFile, NUM_LINES, MIN_LEN);
+    public void shortLinesShuffle() throws Exception {
+        for (int it = 0; it < 200; it++) {
+            int numLines = new Random().nextInt(2000);
+            logger.info("************ " + numLines + " lines *********");
+            int MIN_LEN = 3;
+            Utils.writeRandomLines(inputFile, numLines, MIN_LEN);
+            BigFileSorter bigFileSorter = new BigFileSorter(inputFile, outputFile, null);
+            bigFileSorter.sort();
+            checkLines(outputFile, numLines, MIN_LEN);
+        }
     }
 
     @Test
-    public void longShuffle() throws Exception {
+    public void longLinesShuffle() throws Exception {
         int NUM_LINES = 5;
         int MIN_LEN = Global.BUFFER_SIZE;
         Utils.writeRandomLines(inputFile, NUM_LINES, MIN_LEN);

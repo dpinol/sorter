@@ -22,6 +22,7 @@ import static org.junit.Assert.*;
  * Created by dani on 26/09/16.
  */
 public class FileLineReaderTest {
+    private static final Log logger = new Log(FileLineReaderTest.class);
     private File tempFile;
     private final Random rnd = new Random();
 
@@ -103,10 +104,10 @@ public class FileLineReaderTest {
                 while ((nl = findNewLine(buffer, nl + 1, buffer.limit())) >= 0)
                     numLines++;
                 if (total % 100_000 == 0)
-                    Log.info("buffers read: " + total + ", lines:" + numLines);
+                    logger.info("buffers read: " + total + ", lines:" + numLines);
                 buffer.clear();
             }
-            Log.info("Num lines:" + numLines);
+            logger.info("Num lines:" + numLines);
         }
     }
 
@@ -124,7 +125,7 @@ public class FileLineReaderTest {
                     it.next();
                 }
                 if (++i % 100_000 == 0)
-                    Log.info("lines read: " + i);
+                    logger.info("lines read: " + i);
             }
         }
     }
@@ -139,9 +140,9 @@ public class FileLineReaderTest {
                 Iterator<String> iterator = bl.getIterator();
                 while (iterator.hasNext()) {
                     String next = iterator.next();
-//                    Log.info(next);
+//                    logger.info(next);
                 }
-                Log.info("lines read: " + (i++));
+                logger.info("lines read: " + (i++));
             }
         }
 
@@ -155,7 +156,7 @@ public class FileLineReaderTest {
             int i = 0;
             while (reader.readLine() != null) {
                 if (++i % 100_000 == 0)
-                    Log.info("lines read: " + i);
+                    logger.info("lines read: " + i);
             }
         }
     }
@@ -169,7 +170,7 @@ public class FileLineReaderTest {
         writeLines(lines2write);
         try (FileLineReader reader = new FileLineReader(tempFile)) {
             for (String line : lines2write) {
-                Log.info("testing line of length " + line.length());
+                logger.info("testing line of length " + line.length());
                 String readLine = readLine(reader);
                 assertFalse(readLine.contains(Global.LINE_SEPARATOR));
                 assertEquals("expected length", line.length(), readLine.length());

@@ -18,9 +18,12 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Merges a list of sorted files into a single one
+ * Merges a list of "sorted lines suppliers" (can provide from a file, or for a temporary list of lines in memory)
+ * into a single sorted stream of lines which is provided to a consumer
  */
 public class Merger implements AutoCloseable {
+    private final Log logger;
+
     private final List<ThrowingSupplier<FileLine>> suppliers;
     private final ThrowingConsumer<FileLine> consumer;
     private final ExecutorService executorService;
@@ -30,7 +33,15 @@ public class Merger implements AutoCloseable {
     private final LongAdder linesPushed = new LongAdder();
     private final LongAdder numDrainedFiles = new LongAdder();
 
+    /**
+     *
+     * @param suppliers lines must be sorted ascending
+     * @param consumer lines will be supplied sorted √
+     * @param executorService
+     * @throws IOException
+     */
     public Merger(List<ThrowingSupplier<FileLine>> suppliers, ThrowingConsumer<FileLine> consumer, ExecutorService executorService) throws IOException {
+        logger = new Log(suppliers.size() + " suppliers to a " + consumer.getClass().getSimpleName());
         this.suppliers = suppliers;
         this.consumer = consumer;
         this.executorService = executorService;
@@ -58,7 +69,7 @@ public class Merger implements AutoCloseable {
     }
 
     void merge() throws Exception {
-        Log.info("Merging " + suppliers.size() + " inputs");
+        logger.info("Merging " + suppliers.size() + " inputs");
         //load heap
         int readerIndex = 0;
         for (ThrowingSupplier<FileLine> supplier: suppliers) {
@@ -81,8 +92,8 @@ public class Merger implements AutoCloseable {
             pushFromReader(first.readerIndex);
         }
         lineWrittenCF.join();
-        Log.info(linesPushed + " lines pushed");
-        Log.info(numDrainedFiles + " files drained");
+        logger.info(linesPushed + " lines pushed");
+        logger.info(numDrainedFiles + " files drained");
     }
 
     void pushFromReader(final int index) throws Exception {

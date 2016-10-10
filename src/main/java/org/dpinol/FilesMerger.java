@@ -11,16 +11,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Merges a list of sorted files into a single one
+ * Merges a list of sorted files into a single sorted one
  */
 public class FilesMerger implements AutoCloseable {
-    private final ExecutorService executorService;
-    final List<ThrowingSupplier<FileLine>> suppliers;
-    final FileConsumer consumer;
-    private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
-    private final LongAdder linesPushed = new LongAdder();
-    private final LongAdder numDrainedFiles = new LongAdder();
+    private final List<ThrowingSupplier<FileLine>> suppliers;
+    private final FileConsumer consumer;
     private final Merger merger;
+    private final ExecutorService executorService;
 
     /**
      * @param inputFiles should not be empty
@@ -34,6 +31,19 @@ public class FilesMerger implements AutoCloseable {
         consumer = new FileConsumer(output);
         merger = new Merger(suppliers, consumer, executorService);
     }
+
+    @Override
+    public void close() throws Exception {
+        for (ThrowingSupplier supplier : suppliers) {
+            ((AutoCloseable) supplier).close();
+        }
+        consumer.close();
+    }
+
+    public void merge() throws Exception {
+        merger.merge();
+    }
+
 
     private static class FileSupplier implements ThrowingSupplier<FileLine>, AutoCloseable {
         private final FileLineReader reader;
@@ -72,18 +82,9 @@ public class FilesMerger implements AutoCloseable {
         }
     }
 
-    @Override
-    public void close() throws Exception {
-        for (ThrowingSupplier supplier : suppliers) {
-            ((AutoCloseable) supplier).close();
-        }
-        consumer.close();
-    }
 
 
-    void merge() throws Exception {
-        merger.merge();
-    }
+
 
 
 }

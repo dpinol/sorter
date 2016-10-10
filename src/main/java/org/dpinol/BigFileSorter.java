@@ -20,14 +20,15 @@ import java.util.concurrent.TimeUnit;
  * This class splits the line, and distributes them to {@link ChunkSorter}'s,
  * each of which will create several sorted files, which {@link FilesMerger} will merge
  * on a single file
- *  File 5G (5M lines)
- *  Mon Oct 10 01:56:58 CEST 2016: *** RUNNING WITH 5 threads, buffer size 10240, 10000 lines per sorter, 5 buckets of size 10000
+ * File 5G (5M lines)
+ * Mon Oct 10 01:56:58 CEST 2016: *** RUNNING WITH 5 threads, buffer size 10240, 10000 lines per sorter, 5 buckets of size 10000
  * 26s map
  * 4'20s reduce
  * total 4m47.552s
  */
 public class BigFileSorter {
 
+    private final static Log logger = new Log(BigFileSorter.class);
     //TODO with threaded sort, 100_000 is much slower than 10_000
     static final int LINES_PER_SORTER = 10_000;
     private static final int NUM_SORTERS = 5; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
@@ -46,12 +47,16 @@ public class BigFileSorter {
 
 
     /**
+     * @param input must exist and not be empty
      * @param tmpFolder if null, it will be written to output folder
      */
     BigFileSorter(File input, File output, File tmpFolder) throws IOException {
+        if (!input.isFile() || input.length() == 0) {
+            throw new IllegalArgumentException("Input file " + input + " non existent or empty");
+        }
         if (QUEUE_BUCKET_SIZE > LINES_PER_SORTER)
             throw new AssertionError("QUEUE_BUCKET_SIZE > LINES_PER_SORTER");
-        Log.info("*** RUNNING WITH " + NUM_THREADS + " threads, "
+        logger.info("*** RUNNING WITH " + NUM_THREADS + " threads, "
                 + "buffer size " + Global.BUFFER_SIZE + ", "
                 + LINES_PER_SORTER + " lines per sorter, "
                 + QUEUE_NUM_BUCKETS + " buckets of size " + QUEUE_BUCKET_SIZE);
@@ -65,6 +70,7 @@ public class BigFileSorter {
         } else {
             this.tmpFolder = tmpFolder;
         }
+        logger.info("Using temporary folder at %s", this.tmpFolder);
     }
 
 
@@ -89,7 +95,7 @@ public class BigFileSorter {
             while ((fileLine = fileLineReader.readFileLine()) != null) {
                 bytesRead += fileLine.getNumBytes();
                 if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
-                    Log.info("Read " + bytesRead / 1_024 + "kB");
+                    logger.info("Read " + bytesRead / 1_024 + "kB");
                     lastBytesLog = bytesRead;
                 }
                 bucket.add(fileLine);
@@ -117,17 +123,21 @@ public class BigFileSorter {
     void closeExecutor(ExecutorService executorService) throws InterruptedException {
         executorService.shutdown();
         while (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
-            Log.info("Waiting for flushers");
+            logger.info("Waiting for flushers");
         }
 
     }
 
     private void reduce() throws Exception {
-        final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
-        try (FilesMerger filesMerger = new FilesMerger(tmpFiles, output, executorService)) {
-            filesMerger.merge();
+        if (tmpFiles.size() == 1) {
+            tmpFiles.get(0).renameTo(output);
+        } else {
+            final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
+            try (ParallelFilesMerger filesMerger = new ParallelFilesMerger(tmpFiles, output, executorService)) {
+                filesMerger.merge();
+            }
+            closeExecutor(executorService);
         }
-        closeExecutor(executorService);
     }
 
     public static void main(String[] args) throws Exception {

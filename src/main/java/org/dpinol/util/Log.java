@@ -13,24 +13,34 @@ public class Log {
         ERROR
     }
 
-    static Level level = Level.INFO;
+    static final Level level = Level.INFO;
+    private final String name;
+
+    public Log(String name) {
+        this.name = name;
+    }
+
+    public Log(Class clazz) {
+        this.name = clazz.getSimpleName();
+    }
 
 
-    public static void error(String str, Object... args) {
+    public void error(String str, Object... args) {
         log(Level.ERROR, str, args);
     }
 
-    public static void info(String str, Object... args) {
+    public void info(String str, Object... args) {
         log(Level.INFO, str, args);
     }
 
-    public static void debug(String str, Object... args) {
+    public void debug(String str, Object... args) {
         log(Level.DEBUG, str, args);
     }
 
-    public static void log(Level level, String str, Object... args) {
-        if (level.ordinal() >= Log.level.ordinal())
-            System.out.println(new Date() + ": " + String.format(str, args));
+    public void log(Level level, String str, Object... args) {
+        if (level.ordinal() >= Log.level.ordinal()) {
+            System.out.println(new Date() + ": " + name + ": " + String.format(str, args));
+        }
     }
 
 

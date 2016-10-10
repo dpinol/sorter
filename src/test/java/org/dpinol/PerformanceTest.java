@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit;
  * Created by dani on 05/10/2016.
  */
 public class PerformanceTest {
+    private static final Log logger = new Log(PerformanceTest.class);
+
     static final int NUM_THREADS = 16;
     static final int NUM_LINES = 5_000_000;
     static final int QUEUE_BUCKET_SIZE = 1000;
@@ -45,7 +47,7 @@ public class PerformanceTest {
             for (int i = 0; i < NUM_LINES; i++) {
                 bucket.add(new ShortLine("line" + rnd.nextInt()));
                 if (i % 1_000_000 == 0) {
-                    Log.info("Bucket pushed " + i);
+                    logger.info("Bucket pushed " + i);
                 }
                 if (bucket.isFull()) {
                     queue.put(bucket);
@@ -79,7 +81,7 @@ public class PerformanceTest {
                         consumeLine(heap, fileLine);
                     }
                 }
-                Log.info("lines read " + hc + ". Waits " + waits);
+                logger.info("lines read " + hc + ". Waits " + waits);
             } catch (Exception e) {
                 e.printStackTrace();
             }

@@ -1,6 +1,7 @@
 package org.dpinol;
 
 import org.dpinol.util.Log;
+import org.dpinol.util.ProgressLogger;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -14,6 +15,8 @@ import java.util.concurrent.TimeUnit;
  * they are flushed. The flush is done on a different thread
  */
 class ChunkSorter implements AutoCloseable {
+    private final static Log logger = new Log(ChunkSorter.class);
+
     private final File tmpFolder;
     private final ArrayBlockingQueue<LineBucket> queue;
     private final String id;
@@ -52,16 +55,18 @@ class ChunkSorter implements AutoCloseable {
             while (!isDone()) {
                 try {
                     fillHeap();
-                    tmpFile = File.createTempFile("sort_tmp", id, tmpFolder);
-                    tmpFile.deleteOnExit();
-                    files.add(tmpFile);
-                    flush();
+                    if (!heap.isEmpty()) {
+                        tmpFile = File.createTempFile("sort_tmp", id, tmpFolder);
+                        tmpFile.deleteOnExit();
+                        files.add(tmpFile);
+                        flush();
+                    }
                 } catch (Exception e) {
                     System.err.println("Error writing ChunkSorter to " + tmpFile + ": " + e);
                     e.printStackTrace();
                 }
             }
-            Log.info("Finished "  + sorterThread + " after " + waitCounter + " waits");
+            logger.debug("Finished "  + sorterThread + " after " + waitCounter + " waits");
         }
 
         boolean isDone() {
@@ -83,7 +88,7 @@ class ChunkSorter implements AutoCloseable {
 
 
         void flush() throws Exception {
-//            Log.info("Flushing file " + tmpFile);
+//            logger.info("Flushing file " + tmpFile);
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile))) {
                 FileLine line;
                 while ((line = heap.poll()) != null) {
