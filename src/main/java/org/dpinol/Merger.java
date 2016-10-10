@@ -20,7 +20,6 @@ public class Merger implements AutoCloseable {
     //to avoid comparing the first of each file too many times, we use a heap
     private final SimpleHeap<LineWithOrigin> front;
     private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
-    private final LongAdder linesRead = new LongAdder();
     private final LongAdder linesPushed = new LongAdder();
     private final LongAdder numDrainedFiles = new LongAdder();
 
@@ -67,17 +66,14 @@ public class Merger implements AutoCloseable {
         Log.info("Merging " + readers.size() + " files");
         //load heap
         int readerIndex = 0;
-        CompletableFuture<Void>[] cfs = new CompletableFuture[readers.size()];
         Log.info("%d readers", readers.size());
         for (FileLineReader reader : readers) {
-            cfs[readerIndex] = pushFromReaderAsync(readerIndex);
+            pushFromReader(readerIndex);
             readerIndex++;
             linesPushed.add(1);
         }
-        CompletableFuture<Void> frontUpdatedCF = CompletableFuture.allOf(cfs);
         CompletableFuture<Void> lineWrittenCF = CompletableFuture.runAsync(() -> {
         }, executorService);
-        frontUpdatedCF.join();
         while (!front.isEmpty()) {
             LineWithOrigin first = front.poll();
             lineWrittenCF = lineWrittenCF.thenRun(() ->
@@ -85,46 +81,15 @@ public class Merger implements AutoCloseable {
                 try {
                     first.line.write(writer);
                 } catch (IOException e) {
-                    //TODO manager
-                    Log.error(e.toString());
+                    throw new RuntimeException(e);
                 }
             });
             pushFromReader(first.readerIndex);
         }
         lineWrittenCF.join();
         Log.info(linesPushed + " lines pushed");
-        Log.info(linesRead + " lines read");
         Log.info(numDrainedFiles + " files drained");
     }
-
-    /**
-     * Actually we're not making any use of being async now. Maybe we can read from all files
-     * at the same time, so that we have at least BigLine in a cache?
-     */
-    CompletableFuture<Void> pushFromReaderAsync(final int index) {
-        final FileLineReader firstReader = readers.get(index);
-        CompletableFuture<Void> cf = new CompletableFuture<>();
-        CompletableFuture.runAsync(() -> {
-            try {
-                FileLine fileLine = firstReader.readFileLine();
-                if (fileLine != null) {
-                    LineWithOrigin lineWithOrigin = new LineWithOrigin(fileLine, index);
-                    synchronized (this) {
-                        front.add(lineWithOrigin);
-                    }
-                    linesPushed.add(1);
-                    numBytesRead.inc(fileLine.getNumBytes());
-                } else {
-                    numDrainedFiles.add(1);
-                }
-                cf.complete(null);
-            } catch (IOException e) {
-                cf.completeExceptionally(e);
-            }
-        }, executorService);
-        return cf;
-    }
-
 
     void pushFromReader(final int index) throws IOException {
         final FileLineReader firstReader = readers.get(index);

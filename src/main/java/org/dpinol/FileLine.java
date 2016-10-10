@@ -54,28 +54,6 @@ public abstract class FileLine implements Comparable<FileLine> {
     abstract public Iterator<String> getIterator() throws IOException;
 
 
-    /**
-     * Writes the line with a final new Line
-     *
-     */
-    public CompletableFuture<Void> writeAsync(Writer writer, ExecutorService executorService) {
-        CompletableFuture<Void> cf = new CompletableFuture<>();
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        Iterator<String> iterator = getIterator();
-                        while (iterator.hasNext()) {
-                            writer.write(iterator.next());
-                        }
-                        writer.write(Global.LINE_SEPARATOR);
-                        cf.complete(null);
-                    } catch (IOException e) {
-                        cf.completeExceptionally(e);
-                    }
-                }, executorService);
-        return cf;
-    }
-
     public void write(Writer writer) throws IOException {
         Iterator<String> iterator = getIterator();
         while (iterator.hasNext()) {
