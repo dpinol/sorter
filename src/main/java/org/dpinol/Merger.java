@@ -29,7 +29,7 @@ public class Merger implements AutoCloseable {
     private final ExecutorService executorService;
     //to avoid comparing the first of each file too many times, we use a heap
     private final SimpleHeap<LineWithOrigin> front;
-    private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
+    private static final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
     private final LongAdder linesPushed = new LongAdder();
     private final LongAdder numDrainedFiles = new LongAdder();
 

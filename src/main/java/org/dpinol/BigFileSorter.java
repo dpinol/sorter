@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Sorts a text file, line by line.
  * This class splits the line, and distributes them to {@link ChunkSorter}'s,
- * each of which will create several sorted files, which {@link FilesMerger} will merge
+ * each of which will create several sorted files, which {@link ParallelFilesMerger} will merge
  * on a single file
  * File 5G (5M lines)
  * Mon Oct 10 01:56:58 CEST 2016: *** RUNNING WITH 5 threads, buffer size 10240, 10000 lines per sorter, 5 buckets of size 10000
@@ -27,14 +27,15 @@ import java.util.concurrent.TimeUnit;
  * total 4m47.552s
  */
 public class BigFileSorter {
+    /** Maximum number of simultaneous parallel cores to use in the whole application (includes main thread)*/
+    private static final int MAX_NUM_THREADS = 6; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
 
     private final static Log logger = new Log(BigFileSorter.class);
     //TODO with threaded sort, 100_000 is much slower than 10_000
     static final int LINES_PER_SORTER = 10_000;
-    private static final int NUM_SORTERS = 5; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
-    private static final int NUM_THREADS = NUM_SORTERS;
+    private static final int NUM_SORTERS = MAX_NUM_THREADS - 1;
     static final int QUEUE_BUCKET_SIZE = 1_000;
-    static final int QUEUE_NUM_BUCKETS = NUM_THREADS;
+    static final int QUEUE_NUM_BUCKETS = MAX_NUM_THREADS;
 
     private static final Random rnd = new Random();
 
@@ -47,7 +48,7 @@ public class BigFileSorter {
 
 
     /**
-     * @param input must exist and not be empty
+     * @param input     must exist and not be empty
      * @param tmpFolder if null, it will be written to output folder
      */
     BigFileSorter(File input, File output, File tmpFolder) throws IOException {
@@ -56,7 +57,7 @@ public class BigFileSorter {
         }
         if (QUEUE_BUCKET_SIZE > LINES_PER_SORTER)
             throw new AssertionError("QUEUE_BUCKET_SIZE > LINES_PER_SORTER");
-        logger.info("*** RUNNING WITH " + NUM_THREADS + " threads, "
+        logger.info("*** RUNNING WITH " + MAX_NUM_THREADS + " threads, "
                 + "buffer size " + Global.BUFFER_SIZE + ", "
                 + LINES_PER_SORTER + " lines per sorter, "
                 + QUEUE_NUM_BUCKETS + " buckets of size " + QUEUE_BUCKET_SIZE);
@@ -80,9 +81,12 @@ public class BigFileSorter {
     }
 
 
+    /**
+     * Reads the input file lines sequentially, and pushes buckets of lines into a queue so that
+     * {@link ChunkSorter}'s running in parallel sort them in separate files
+     */
     private void map() throws Exception {
-        //with newWorkStealingPool I get RejectedExecutionException
-        final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
+        final ExecutorService executorService = Executors.newFixedThreadPool(MAX_NUM_THREADS - 1);
         for (int i = 0; i < BigFileSorter.NUM_SORTERS; i++) {
             sorters.add(new ChunkSorter(this.tmpFolder, Integer.toString(i), executorService, queue));
         }
@@ -132,17 +136,14 @@ public class BigFileSorter {
         if (tmpFiles.size() == 1) {
             tmpFiles.get(0).renameTo(output);
         } else {
-            final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
-            try (ParallelFilesMerger filesMerger = new ParallelFilesMerger(tmpFiles, output, executorService)) {
+            try (ParallelFilesMerger filesMerger = new ParallelFilesMerger(tmpFiles, output, MAX_NUM_THREADS)) {
                 filesMerger.merge();
             }
-            closeExecutor(executorService);
         }
     }
 
     public static void main(String[] args) throws Exception {
         File tmpFolder = null;
-        // write your code here
         if (args.length < 2) {
             System.err.println("Usage: " + BigFileSorter.class.getName() + " inputFile outputFile [tmpFolder]");
             System.err.println("If tmpFolder not provide, tmp files will be written in same folder as outputFile");
