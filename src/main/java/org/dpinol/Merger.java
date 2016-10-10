@@ -14,13 +14,12 @@ import java.util.concurrent.atomic.LongAdder;
  * Merges a list of sorted files into a single one
  */
 public class Merger implements AutoCloseable {
-    private final List<FileLineReader> readers;
+    private final List<AsyncFileLineReader> readers;
     private final ExecutorService executorService;
     private final BufferedWriter writer;
     //to avoid comparing the first of each file too many times, we use a heap
     private final SimpleHeap<LineWithOrigin> front;
     private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
-    private final LongAdder linesRead = new LongAdder();
     private final LongAdder linesPushed = new LongAdder();
     private final LongAdder numDrainedFiles = new LongAdder();
 
@@ -32,7 +31,7 @@ public class Merger implements AutoCloseable {
         this.executorService = executorService;
         for (File inputFile : inputFiles) {
             if (inputFile.length() > 0) {
-                readers.add(new FileLineReader(inputFile));
+                readers.add(new AsyncFileLineReader(inputFile));
             }
         }
         front = new SimpleHeap<>(readers.size());
@@ -41,7 +40,7 @@ public class Merger implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        for (FileLineReader reader : readers) {
+        for (AsyncFileLineReader reader : readers) {
             reader.close();
         }
         writer.close();
@@ -63,21 +62,19 @@ public class Merger implements AutoCloseable {
         }
     }
 
-    void merge() throws IOException {
+    void merge() throws Exception {
         Log.info("Merging " + readers.size() + " files");
         //load heap
         int readerIndex = 0;
         CompletableFuture<Void>[] cfs = new CompletableFuture[readers.size()];
         Log.info("%d readers", readers.size());
-        for (FileLineReader reader : readers) {
-            cfs[readerIndex] = pushFromReaderAsync(readerIndex);
+        for (AsyncFileLineReader reader : readers) {
+            pushFromReader(readerIndex);
             readerIndex++;
             linesPushed.add(1);
         }
-        CompletableFuture<Void> frontUpdatedCF = CompletableFuture.allOf(cfs);
         CompletableFuture<Void> lineWrittenCF = CompletableFuture.runAsync(() -> {
         }, executorService);
-        frontUpdatedCF.join();
         while (!front.isEmpty()) {
             LineWithOrigin first = front.poll();
             lineWrittenCF = lineWrittenCF.thenRun(() ->
@@ -93,42 +90,13 @@ public class Merger implements AutoCloseable {
         }
         lineWrittenCF.join();
         Log.info(linesPushed + " lines pushed");
-        Log.info(linesRead + " lines read");
         Log.info(numDrainedFiles + " files drained");
     }
 
-    /**
-     * Actually we're not making any use of being async now. Maybe we can read from all files
-     * at the same time, so that we have at least BigLine in a cache?
-     */
-    CompletableFuture<Void> pushFromReaderAsync(final int index) {
-        final FileLineReader firstReader = readers.get(index);
-        CompletableFuture<Void> cf = new CompletableFuture<>();
-        CompletableFuture.runAsync(() -> {
-            try {
-                FileLine fileLine = firstReader.readFileLine();
-                if (fileLine != null) {
-                    LineWithOrigin lineWithOrigin = new LineWithOrigin(fileLine, index);
-                    synchronized (this) {
-                        front.add(lineWithOrigin);
-                    }
-                    linesPushed.add(1);
-                    numBytesRead.inc(fileLine.getNumBytes());
-                } else {
-                    numDrainedFiles.add(1);
-                }
-                cf.complete(null);
-            } catch (IOException e) {
-                cf.completeExceptionally(e);
-            }
-        }, executorService);
-        return cf;
-    }
 
-
-    void pushFromReader(final int index) throws IOException {
-        final FileLineReader firstReader = readers.get(index);
-        FileLine fileLine = firstReader.readFileLine();
+    void pushFromReader(final int index) throws Exception {
+        final AsyncFileLineReader firstReader = readers.get(index);
+        FileLine fileLine = firstReader.readLine();
         if (fileLine != null) {
             LineWithOrigin lineWithOrigin = new LineWithOrigin(fileLine, index);
             front.add(lineWithOrigin);

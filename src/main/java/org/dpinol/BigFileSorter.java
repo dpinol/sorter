@@ -20,14 +20,18 @@ import java.util.concurrent.TimeUnit;
  * This class splits the line, and distributes them to {@link ChunkSorter}'s,
  * each of which will create several sorted files, which {@link Merger} will merge
  * on a single file
+ *
+ * File 5G (5M lines)
+ * 26s map
+ * 4'20s reduce
  */
 public class BigFileSorter {
 
     //TODO with threaded sort, 100_000 is much slower than 10_000
-    static final int LINES_PER_SORTER = 100_000;
+    static final int LINES_PER_SORTER = 10_000;
     private static final int NUM_SORTERS = 5; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
     private static final int NUM_THREADS = NUM_SORTERS;
-    static final int QUEUE_BUCKET_SIZE = 1_000;
+    static final int QUEUE_BUCKET_SIZE = 10_000;
     static final int QUEUE_NUM_BUCKETS = NUM_THREADS ;
 
     private static final Random rnd = new Random();
@@ -78,10 +82,10 @@ public class BigFileSorter {
 
         long bytesRead = 0;
         long lastBytesLog = 0;
-        try (FileLineReader fileLineReader = new FileLineReader(input)) {
+        try (AsyncFileLineReader fileLineReader = new AsyncFileLineReader(input)) {
             FileLine fileLine;
             LineBucket bucket = new LineBucket();
-            while ((fileLine = fileLineReader.readFileLine()) != null) {
+            while ((fileLine = fileLineReader.readLine()) != null) {
                 bytesRead += fileLine.getNumBytes();
                 if (bytesRead - lastBytesLog > 100 * 1_024 * 1_204) {
                     Log.info("Read " + bytesRead / 1_024 + "kB");
