@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Sorts a text file, line by line.
  * This class splits the line, and distributes them to {@link ChunkSorter}'s,
- * each of which will create several sorted files, which {@link Merger} will merge
+ * each of which will create several sorted files, which {@link FilesMerger} will merge
  * on a single file
  *  File 5G (5M lines)
  *  Mon Oct 10 01:56:58 CEST 2016: *** RUNNING WITH 5 threads, buffer size 10240, 10000 lines per sorter, 5 buckets of size 10000
@@ -124,8 +124,8 @@ public class BigFileSorter {
 
     private void reduce() throws Exception {
         final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
-        try (Merger merger = new Merger(tmpFiles, output, executorService)) {
-            merger.merge();
+        try (FilesMerger filesMerger = new FilesMerger(tmpFiles, output, executorService)) {
+            filesMerger.merge();
         }
         closeExecutor(executorService);
     }

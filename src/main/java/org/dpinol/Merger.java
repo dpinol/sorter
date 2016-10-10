@@ -2,48 +2,43 @@ package org.dpinol;
 
 import org.dpinol.util.Log;
 import org.dpinol.util.ProgressLogger;
+import org.dpinol.util.ThrowingConsumer;
+import org.dpinol.util.ThrowingSupplier;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Merges a list of sorted files into a single one
  */
 public class Merger implements AutoCloseable {
-    private final List<FileLineReader> readers;
+    private final List<ThrowingSupplier<FileLine>> suppliers;
+    private final ThrowingConsumer<FileLine> consumer;
     private final ExecutorService executorService;
-    private final BufferedWriter writer;
     //to avoid comparing the first of each file too many times, we use a heap
     private final SimpleHeap<LineWithOrigin> front;
     private final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
     private final LongAdder linesPushed = new LongAdder();
     private final LongAdder numDrainedFiles = new LongAdder();
 
-    /**
-     * @param inputFiles should not be empty
-     */
-    public Merger(List<File> inputFiles, File output, ExecutorService executorService) throws IOException {
-        readers = new ArrayList<>(inputFiles.size());
+    public Merger(List<ThrowingSupplier<FileLine>> suppliers, ThrowingConsumer<FileLine> consumer, ExecutorService executorService) throws IOException {
+        this.suppliers = suppliers;
+        this.consumer = consumer;
         this.executorService = executorService;
-        for (File inputFile : inputFiles) {
-            if (inputFile.length() > 0) {
-                readers.add(new FileLineReader(inputFile));
-            }
-        }
-        front = new SimpleHeap<>(readers.size());
-        writer = new BufferedWriter(new FileWriter(output));
+        front = new SimpleHeap<>(suppliers.size());
     }
 
     @Override
     public void close() throws Exception {
-        for (FileLineReader reader : readers) {
-            reader.close();
-        }
-        writer.close();
     }
 
 
@@ -62,12 +57,11 @@ public class Merger implements AutoCloseable {
         }
     }
 
-    void merge() throws IOException {
-        Log.info("Merging " + readers.size() + " files");
+    void merge() throws Exception {
+        Log.info("Merging " + suppliers.size() + " inputs");
         //load heap
         int readerIndex = 0;
-        Log.info("%d readers", readers.size());
-        for (FileLineReader reader : readers) {
+        for (ThrowingSupplier<FileLine> supplier: suppliers) {
             pushFromReader(readerIndex);
             readerIndex++;
             linesPushed.add(1);
@@ -79,8 +73,8 @@ public class Merger implements AutoCloseable {
             lineWrittenCF = lineWrittenCF.thenRun(() ->
             {
                 try {
-                    first.line.write(writer);
-                } catch (IOException e) {
+                    consumer.accept(first.line);
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
@@ -91,9 +85,9 @@ public class Merger implements AutoCloseable {
         Log.info(numDrainedFiles + " files drained");
     }
 
-    void pushFromReader(final int index) throws IOException {
-        final FileLineReader firstReader = readers.get(index);
-        FileLine fileLine = firstReader.readFileLine();
+    void pushFromReader(final int index) throws Exception {
+        final ThrowingSupplier<FileLine> supplier = suppliers.get(index);
+        FileLine fileLine = supplier.get();
         if (fileLine != null) {
             LineWithOrigin lineWithOrigin = new LineWithOrigin(fileLine, index);
             front.add(lineWithOrigin);
