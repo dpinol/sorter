@@ -1,7 +1,8 @@
 package org.dpinol;
 
-import org.dpinol.helpers.Timer;
-import org.dpinol.util.Log;
+import org.dpinol.data.SimpleHeap;
+import org.dpinol.log.Timer;
+import org.dpinol.log.Log;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -12,7 +13,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Created by dani on 05/10/2016.
  */
 public class PerformanceTest {
     private static final Log logger = new Log(PerformanceTest.class);

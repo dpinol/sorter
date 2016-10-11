@@ -1,8 +1,9 @@
-package org.dpinol.util;
+package org.dpinol.function;
 
 /**
- * Created by dani on 10/10/2016.
+ * Same as {@link java.util.function.Consumer}, but allowing exceptions
  */
+
 @FunctionalInterface
 public interface ThrowingConsumer<T> {
 

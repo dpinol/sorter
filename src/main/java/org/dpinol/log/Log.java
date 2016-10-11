@@ -1,4 +1,4 @@
-package org.dpinol.util;
+package org.dpinol.log;
 
 import java.util.Date;
 

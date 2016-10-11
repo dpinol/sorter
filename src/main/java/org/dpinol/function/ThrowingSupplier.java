@@ -1,7 +1,7 @@
-package org.dpinol.util;
+package org.dpinol.function;
 
 /**
- * Created by dani on 10/10/2016.
+ * Same as {@link java.util.function.Supplier}, but allowing exceptions
  */
 @FunctionalInterface
 public interface ThrowingSupplier<T> {

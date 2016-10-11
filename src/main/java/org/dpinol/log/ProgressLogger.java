@@ -1,7 +1,4 @@
-package org.dpinol.util;
-
-import org.dpinol.BigFileSorter;
-import org.dpinol.Global;
+package org.dpinol.log;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -27,7 +24,7 @@ public class ProgressLogger {
         long lastVal = current.longValue();
         if (current.addAndGet(inc) > nextLog && lastVal < nextLog) {
             nextLog += logInterval;
-            logger.info(name + " reached " + current);
+            logger.info("%s reached %d", name, current.get());
         }
     }
 }

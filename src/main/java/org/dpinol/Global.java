@@ -3,7 +3,6 @@ package org.dpinol;
 import java.util.Date;
 
 /**
- * Created by dani on 23/09/16.
  */
 public class Global {
     /**

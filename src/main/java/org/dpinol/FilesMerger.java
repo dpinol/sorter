@@ -1,14 +1,12 @@
 package org.dpinol;
 
-import org.dpinol.util.ProgressLogger;
-import org.dpinol.util.ThrowingConsumer;
-import org.dpinol.util.ThrowingSupplier;
+import org.dpinol.function.ThrowingConsumer;
+import org.dpinol.function.ThrowingSupplier;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Merges a list of sorted files into a single sorted one

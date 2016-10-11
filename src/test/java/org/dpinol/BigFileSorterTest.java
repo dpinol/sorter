@@ -1,7 +1,7 @@
 package org.dpinol;
 
 import org.dpinol.helpers.Utils;
-import org.dpinol.util.Log;
+import org.dpinol.log.Log;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.util.Random;
 
 /**
- * Created by dani on 28/09/16.
  */
 public class BigFileSorterTest {
     private final static Log logger = new Log(BigFileSorterTest.class);

@@ -11,19 +11,20 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
 /**
- * Created by dani on 29/09/16.
  */
 public class Utils {
-    private static final Random rnd = new Random();
 
+    /**
+     * Creates a line of the specified length
+     */
     public static String createLine(int size) {
         StringBuilder sb = new StringBuilder(size);
-        char c = 'a';
+        char c = '0';
         for (int i = 0; i < size; i++) {
             sb.append(c);
             c++;
-            if (c > 'z')
-                c = 'a';
+            if (c > '9')
+                c = '0';
         }
         return sb.toString();
     }

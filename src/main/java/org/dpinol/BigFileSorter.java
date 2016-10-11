@@ -1,6 +1,6 @@
 package org.dpinol;
 
-import org.dpinol.util.Log;
+import org.dpinol.log.Log;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -9,11 +9,11 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Sorts a text file, line by line.
@@ -27,24 +27,21 @@ import java.util.concurrent.TimeUnit;
  * total 4m47.552s
  */
 public class BigFileSorter {
+    private final static Log logger = new Log(BigFileSorter.class);
+
     /** Maximum number of simultaneous parallel cores to use in the whole application (includes main thread)*/
     private static final int MAX_NUM_THREADS = 6; //6-> 11.8, 5 ->11.3, 4->11.8, 2->11.2
-
-    private final static Log logger = new Log(BigFileSorter.class);
-    //TODO with threaded sort, 100_000 is much slower than 10_000
     static final int LINES_PER_SORTER = 10_000;
     private static final int NUM_SORTERS = MAX_NUM_THREADS - 1;
     static final int QUEUE_BUCKET_SIZE = 1_000;
     static final int QUEUE_NUM_BUCKETS = MAX_NUM_THREADS;
 
-    private static final Random rnd = new Random();
-
     private final File input;
     private final File output;
     private final File tmpFolder;
     private final List<File> tmpFiles = new ArrayList<>(NUM_SORTERS);
-    private List<ChunkSorter> sorters = new ArrayList<>(NUM_SORTERS);
-    private ArrayBlockingQueue<LineBucket> queue = new ArrayBlockingQueue<>(QUEUE_NUM_BUCKETS);
+    private final List<ChunkSorter> sorters = new ArrayList<>(NUM_SORTERS);
+    private final ArrayBlockingQueue<LineBucket> queue = new ArrayBlockingQueue<>(QUEUE_NUM_BUCKETS);
 
 
     /**
@@ -133,10 +130,11 @@ public class BigFileSorter {
     }
 
     private void reduce() throws Exception {
-        if (tmpFiles.size() == 1) {
-            tmpFiles.get(0).renameTo(output);
+        List<File> noEmpties = tmpFiles.stream().filter((f) -> f.length() != 0).collect(Collectors.toList());
+        if (noEmpties.size() == 1) {
+            noEmpties.get(0).renameTo(output);
         } else {
-            try (ParallelFilesMerger filesMerger = new ParallelFilesMerger(tmpFiles, output, MAX_NUM_THREADS)) {
+            try (ParallelFilesMerger filesMerger = new ParallelFilesMerger(noEmpties, output, MAX_NUM_THREADS)) {
                 filesMerger.merge();
             }
         }
@@ -146,9 +144,9 @@ public class BigFileSorter {
         File tmpFolder = null;
         if (args.length < 2) {
             System.err.println("Usage: " + BigFileSorter.class.getName() + " inputFile outputFile [tmpFolder]");
-            System.err.println("If tmpFolder not provide, tmp files will be written in same folder as outputFile");
+            System.err.println("If tmpFolder not provided, a tmp folder will be created and used within outputFile");
             System.exit(-1);
-        } else if (args.length == 3) {
+        } else if (args.length == 3 && !args[2].isEmpty()) {
             tmpFolder = new File(args[2]);
         }
         BigFileSorter bigFileSorter = new BigFileSorter(new File(args[0]), new File(args[1]), tmpFolder);

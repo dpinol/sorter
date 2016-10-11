@@ -1,21 +1,16 @@
 package org.dpinol;
 
-import org.dpinol.util.Log;
-import org.dpinol.util.ProgressLogger;
-import org.dpinol.util.ThrowingConsumer;
-import org.dpinol.util.ThrowingSupplier;
+import org.dpinol.data.SimpleHeap;
+import org.dpinol.log.Log;
+import org.dpinol.log.ProgressLogger;
+import org.dpinol.function.ThrowingConsumer;
+import org.dpinol.function.ThrowingSupplier;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 /**
  * Merges a list of "sorted lines suppliers" (can provide from a file, or for a temporary list of lines in memory)
@@ -29,7 +24,7 @@ public class Merger implements AutoCloseable {
     private final ExecutorService executorService;
     //to avoid comparing the first of each file too many times, we use a heap
     private final SimpleHeap<LineWithOrigin> front;
-    private static final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 100_000_000);
+    private static final ProgressLogger numBytesRead = new ProgressLogger("num bytes read", 500_000_000);
     private final LongAdder linesPushed = new LongAdder();
     private final LongAdder numDrainedFiles = new LongAdder();
 
@@ -75,7 +70,6 @@ public class Merger implements AutoCloseable {
         for (ThrowingSupplier<FileLine> supplier: suppliers) {
             pushFromReader(readerIndex);
             readerIndex++;
-            linesPushed.add(1);
         }
         CompletableFuture<Void> lineWrittenCF = CompletableFuture.runAsync(() -> {
         }, executorService);

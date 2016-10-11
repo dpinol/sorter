@@ -1,5 +1,6 @@
 package org.dpinol;
 
+import org.dpinol.data.SimpleHeap;
 import org.dpinol.helpers.Utils;
 import org.junit.Test;
 
@@ -8,7 +9,6 @@ import java.util.stream.IntStream;
 import static org.junit.Assert.*;
 
 /**
- * Created by dani on 04/10/2016.
  */
 public class SimpleHeapTest {
 

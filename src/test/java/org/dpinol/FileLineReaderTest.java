@@ -1,7 +1,7 @@
 package org.dpinol;
 
-import org.dpinol.helpers.Timer;
-import org.dpinol.util.Log;
+import org.dpinol.log.Timer;
+import org.dpinol.log.Log;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -19,7 +19,6 @@ import static org.dpinol.helpers.Utils.createLine;
 import static org.junit.Assert.*;
 
 /**
- * Created by dani on 26/09/16.
  */
 public class FileLineReaderTest {
     private static final Log logger = new Log(FileLineReaderTest.class);

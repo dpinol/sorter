@@ -1,4 +1,4 @@
-package org.dpinol;
+package org.dpinol.data;
 
 /**
  * Heap to sort a collection of objects

@@ -1,8 +1,8 @@
 package org.dpinol;
 
-import org.dpinol.util.Log;
-import org.dpinol.util.ThrowingConsumer;
-import org.dpinol.util.ThrowingSupplier;
+import org.dpinol.log.Log;
+import org.dpinol.function.ThrowingConsumer;
+import org.dpinol.function.ThrowingSupplier;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -14,36 +14,43 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 /**
- * Merges a list of sorted files into a single one.
- * - NUM_THREADS threads merge each one segment of the input files into a queue
- * - main thread reads from both queues and merges into the output file
+ * Merges in parallel a list of sorted files into a single one.
+ * - The files are split into {@link #MAX_NUM_MERGERS} segments of approx the same number of files.
+ * - Each files segment is merged by an "input Merger", which pushes the sorted lines into a queue
+ * - The main thread runs an "outpu tMerger", which reads from both queues and merges into the output file
  */
 public class ParallelFilesMerger implements AutoCloseable {
     private final static Log logger = new Log(ParallelFilesMerger.class);
 
-    private final static int NUM_PARALLEL_MERGERS = 2;
+    private final static int MAX_NUM_MERGERS = 3;
     private final static int QUEUE_LEN = 1000;
     private final List<File> inputFiles;
     private final File output;
     private final ExecutorService executorService;
-    private final List<ArrayBlockingQueue<FileLine>> queues = new ArrayList<>(NUM_PARALLEL_MERGERS);
+    private final List<ArrayBlockingQueue<FileLine>> queues;
     private final AtomicLong numInputMergersFinished = new AtomicLong(0);
+    private final int numSegments;
+
 
     /**
-     * @param inputFiles should have at least one item
+     * @param inputFiles each input files must contain at least 1 line. Cannot be empty
      * @param maxNumThreads max number of cores to use including main one
      */
     public ParallelFilesMerger(List<File> inputFiles, File output, int maxNumThreads) throws Exception {
         if (inputFiles.isEmpty()) {
             throw new IllegalArgumentException("no inputFiles passed");
         }
-        this.inputFiles = inputFiles.stream().filter((f) -> f.length() != 0).collect(Collectors.toList());
+        numSegments = Math.min(MAX_NUM_MERGERS, inputFiles.size());
+        queues = new ArrayList<>(numSegments);
+        this.inputFiles = inputFiles;
         this.output = output;
         this.executorService = Executors.newFixedThreadPool(maxNumThreads);
         for (File inputFile : this.inputFiles) {
+            if (inputFile.length() == 0) {
+                throw new IllegalArgumentException("Input file "  +inputFile + " is empty");
+            }
             queues.add(new ArrayBlockingQueue<>(QUEUE_LEN));
         }
     }
@@ -62,7 +69,7 @@ public class ParallelFilesMerger implements AutoCloseable {
     }
 
     public boolean isAllInputsRead() {
-        return numInputMergersFinished.get() == NUM_PARALLEL_MERGERS;
+        return numInputMergersFinished.get() == numSegments;
     }
 
 
@@ -70,7 +77,7 @@ public class ParallelFilesMerger implements AutoCloseable {
 
     /* ************* Input *****************/
 
-    void createInputMergers(List<File> inputFiles) throws Exception {
+    private void createInputMergers(List<File> inputFiles) throws Exception {
         final List<ThrowingSupplier<FileLine>> suppliers = new ArrayList<>(inputFiles.size());
         final int numInputs = inputFiles.size();
         for (File inputFile : inputFiles) {
@@ -79,31 +86,30 @@ public class ParallelFilesMerger implements AutoCloseable {
 
         final int[] firstIndex = new int[1];
         firstIndex[0] = 0;
-        for (int segmentIndex = 0; segmentIndex < NUM_PARALLEL_MERGERS; segmentIndex++) {
+        for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
             final int nextFirstIndex;
-            if (segmentIndex == NUM_PARALLEL_MERGERS - 1) {
+            if (segmentIndex == suppliers.size() - 1) {
                 nextFirstIndex = numInputs;
             } else {
-                nextFirstIndex = (int) (((float) segmentIndex + 1) * numInputs / NUM_PARALLEL_MERGERS);
+                nextFirstIndex = (int) (((float) segmentIndex + 1) * numInputs / numSegments);
             }
             createInputMerger(suppliers.subList(firstIndex[0], nextFirstIndex), segmentIndex);
             firstIndex[0] = nextFirstIndex;
-        } //for
-
+        }
     }
 
     private final AtomicLong linesGenerates = new AtomicLong(0);
 
-    void createInputMerger(final List<ThrowingSupplier<FileLine>> suppliersSegment, final int segmentIndex) {
+    private void createInputMerger(final List<ThrowingSupplier<FileLine>> suppliersSegment, final int segmentIndex) {
         executorService.submit(() -> {
             try {
-                try (Merger merger = new Merger(suppliersSegment,
+                try (Merger inputMerger = new Merger(suppliersSegment,
                         (line) -> {
                             queues.get(segmentIndex).put(line);
                             linesGenerates.addAndGet(1);
                         },
                         executorService)) {
-                    merger.merge();
+                    inputMerger.merge();
                 }
                 for (ThrowingSupplier<FileLine> supplier : suppliersSegment) {
                     ((AutoCloseable) supplier).close();
@@ -111,7 +117,8 @@ public class ParallelFilesMerger implements AutoCloseable {
                 logger.info(linesGenerates.get() + " lines pushed to queues");
                 numInputMergersFinished.addAndGet(1);
             } catch (Exception e) {
-                logger.error("In input merger for segment with id " + segmentIndex + ". Suppliers" + suppliersSegment);
+                e.printStackTrace();
+                logger.error("In input merger for segment with id %d of length %d", segmentIndex, suppliersSegment.size());
             }
         });
     }
@@ -137,8 +144,8 @@ public class ParallelFilesMerger implements AutoCloseable {
     /************** Output *****************/
 
     private void createOutputMerger(File output) throws Exception {
-        final List<ThrowingSupplier<FileLine>> suppliers = new ArrayList<>(NUM_PARALLEL_MERGERS);
-        for (int i = 0; i < NUM_PARALLEL_MERGERS; i++) {
+        final List<ThrowingSupplier<FileLine>> suppliers = new ArrayList<>(numSegments);
+        for (int i = 0; i < numSegments; i++) {
             final int segmentIndex = i;
             suppliers.add(() -> {
                         final ArrayBlockingQueue<FileLine> queue = queues.get(segmentIndex);

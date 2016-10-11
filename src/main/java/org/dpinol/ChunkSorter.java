@@ -1,7 +1,7 @@
 package org.dpinol;
 
-import org.dpinol.util.Log;
-import org.dpinol.util.ProgressLogger;
+import org.dpinol.data.SimpleHeap;
+import org.dpinol.log.Log;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -66,7 +66,7 @@ class ChunkSorter implements AutoCloseable {
                     e.printStackTrace();
                 }
             }
-            logger.debug("Finished "  + sorterThread + " after " + waitCounter + " waits");
+            logger.debug("Finished %s after %d waits", sorterThread, waitCounter);
         }
 
         boolean isDone() {
