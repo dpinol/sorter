@@ -3,8 +3,7 @@ package org.dpinol.log;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Threadsafe (almost) accumulator which logs progress at specified intervals
- * Created by dani on 08/10/2016.
+ * Threadsafe accumulator which logs progress at specified intervals
  */
 public class ProgressLogger {
     private final static Log logger = new Log(ProgressLogger.class);

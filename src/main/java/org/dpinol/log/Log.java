@@ -3,7 +3,7 @@ package org.dpinol.log;
 import java.util.Date;
 
 /**
- * Created by dani on 09/10/2016.
+ * Minimalistic logger
  */
 public class Log {
     enum Level {
@@ -13,7 +13,7 @@ public class Log {
         ERROR
     }
 
-    static final Level level = Level.INFO;
+    private static final Level level = Level.INFO;
     private final String name;
 
     public Log(String name) {

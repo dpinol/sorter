@@ -20,11 +20,6 @@ import java.util.stream.Collectors;
  * This class splits the line, and distributes them to {@link ChunkSorter}'s,
  * each of which will create several sorted files, which {@link ParallelFilesMerger} will merge
  * on a single file
- * File 5G (5M lines)
- * Mon Oct 10 01:56:58 CEST 2016: *** RUNNING WITH 5 threads, buffer size 10240, 10000 lines per sorter, 5 buckets of size 10000
- * 26s map
- * 4'20s reduce
- * total 4m47.552s
  */
 public class BigFileSorter {
     private final static Log logger = new Log(BigFileSorter.class);

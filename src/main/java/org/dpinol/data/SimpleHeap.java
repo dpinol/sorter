@@ -1,7 +1,8 @@
 package org.dpinol.data;
 
 /**
- * Heap to sort a collection of objects
+ * Heap to sort a collection of {@link Comparable} objects ascendingly
+ * See algorithm explanation at https://www.tutorialspoint.com/data_structures_algorithms/heap_data_structure.htm
  */
 public class SimpleHeap<E extends Comparable<E>> {
     private int size = 0;
@@ -22,42 +23,49 @@ public class SimpleHeap<E extends Comparable<E>> {
         return (E) data[pos];
     }
 
+    /**
+     * Pushes an item to a suitable position
+     */
     public void add(E item) {
         if (size >= capacity) {
             throw new IllegalStateException("Head is full");
         }
-        int k = size;
-        while (k > 0) {
-            int parent = (k - 1) >>> 1;
+        int index = size;
+        while (index > 0) {
+            int parent = (index - 1) >>> 1;
             E e = get(parent);
-            if (item.compareTo((E) e) >= 0)
+            if (item.compareTo(e) >= 0)
                 break;
-            data[k] = e;
-            k = parent;
+            data[index] = e;
+            index = parent;
         }
-        data[k] = item;
+        data[index] = item;
         size++;
     }
 
 
     /**
+     * Remove the first (smallest)
      * @return null when empty
      */
     public E poll() {
         if (size == 0) {
             return null;
         }
-        int s = --size;
-        E result = get(0);
-        E x = get(s);
-        data[s] = null;
-        if (s != 0) {
-            moveDown(x);
+        final int newSize = --size;
+        final E topElement = get(0);
+        final E lastElement = get(newSize);
+        data[newSize] = null;
+        if (newSize != 0) {
+            pushDown(lastElement);
         }
-        return result;
+        return topElement;
     }
 
-    private void moveDown(E x) {
+    /**
+     * Pushes down the specified element from first position until one where it's not larger than parent
+     */
+    private void pushDown(E x) {
         int k = 0;
         int half = size >>> 1;
         while (k < half) {

@@ -91,7 +91,7 @@ public class FileLineReaderTest {
     public void performanceFC() throws Exception {
         ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
 
-        try (FileChannel fileChannel = FileChannel.open(Paths.get("/Users/dani/appDev/shibs/input.txt"));
+        try (FileChannel fileChannel = FileChannel.open(Paths.get("/Users/dani/appDev/schibs/input.txt"));
              Timer timer = new Timer()) {
             int read = 0;
             int total = 0;
@@ -114,7 +114,7 @@ public class FileLineReaderTest {
     @Ignore
     @Test
     public void performanceBL() throws Exception {
-        try (FileLineReader reader = new FileLineReader(new File("/Users/dani/appDev/shibs/input.txt"));
+        try (FileLineReader reader = new FileLineReader(new File("/Users/dani/appDev/schibs/input.txt"));
              Timer timer = new Timer()) {
             int i = 0;
             FileLine bl;
@@ -129,28 +129,11 @@ public class FileLineReaderTest {
         }
     }
 
-    @Test
-    public void longLines10BL() throws Exception {
-        try (FileLineReader reader = new FileLineReader(new File("/Users/dani/appDev/shibs/10_long_lines.txt"));
-             Timer timer = new Timer()) {
-            int i = 0;
-            FileLine bl;
-            while ((bl = reader.readFileLine()) != null) {
-                Iterator<String> iterator = bl.getIterator();
-                while (iterator.hasNext()) {
-                    String next = iterator.next();
-//                    logger.info(next);
-                }
-                logger.info("lines read: " + (i++));
-            }
-        }
-
-    }
 
     @Ignore
     @Test
     public void performanceStream() throws Exception {
-        try (BufferedReader reader = new BufferedReader(new FileReader("/Users/dani/appDev/shibs/input.txt"));
+        try (BufferedReader reader = new BufferedReader(new FileReader("/Users/dani/appDev/schibs/input.txt"));
              Timer timer = new Timer()) {
             int i = 0;
             while (reader.readLine() != null) {
